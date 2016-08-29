@@ -43,8 +43,12 @@ Function Remove-TervisADUserHomeDirectory {
     param (
         [parameter(Mandatory)]$Identity,
         [Parameter(Mandatory, ParameterSetName=’ManagerRecievesFiles’)][Switch]$ManagerRecievesFiles,
-        [Parameter(Mandatory, ParameterSetName=’AnotehrUserReceivesFiles’)]$IdentityOfUserToRecieveHomeDirectoryFiles,
-        [Parameter(Mandatory, ParameterSetName=’AnotehrUserReceivesFiles’)]$NameOfServerToSendMailFrom,
+        [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]$IdentityOfUserToRecieveHomeDirectoryFiles,
+        
+        [Parameter(Mandatory, ParameterSetName=’ManagerRecievesFiles’)]
+        [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]
+        $NameOfServerToSendMailFrom,
+
         [Parameter(Mandatory, ParameterSetName=’DeleteUsersFiles’)][Switch]$DeleteFilesWithOutMovingThem
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties Manager, HomeDirectory
