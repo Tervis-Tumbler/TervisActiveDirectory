@@ -44,6 +44,7 @@ Function Remove-TervisADUserHomeDirectory {
         [parameter(Mandatory)]$Identity,
         [Parameter(Mandatory, ParameterSetName=’ManagerRecievesFiles’)][Switch]$ManagerRecievesFiles,
         [Parameter(Mandatory, ParameterSetName=’AnotehrUserReceivesFiles’)]$IdentityOfUserToRecieveHomeDirectoryFiles,
+        [Parameter(Mandatory, ParameterSetName=’AnotehrUserReceivesFiles’)]$NameOfServerToSendMailFrom,
         [Parameter(Mandatory, ParameterSetName=’DeleteUsersFiles’)][Switch]$DeleteFilesWithOutMovingThem
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties Manager, HomeDirectory
@@ -98,13 +99,18 @@ Function Remove-TervisADUserHomeDirectory {
         }
 
         if ($ADUserToRecieveFilesComputer.EmailAddress) {
-            Send-MailMessage -from "HelpDesk@Tervis.com" -To $ADUserToRecieveFilesComputer.EmailAddress -Subject "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop" -Body @"
+            $To = $ADUserToRecieveFilesComputer.EmailAddress
+            $Subject = "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop"
+            $Body = @"
 $($ADUser.Name)'s home directory files have been moved to your desktop in a folder named $($ADUser.SAMAccountName). 
 This was done as a part of the termination process for $($ADUser.Name).
 
 If you believe you recieved these files incorreclty please contact the Help Desk at x2248.
-"@ -SmtpServer $(Get-TervisDNSMXMailServer)
-            
+"@
+            Invoke-Command -ComputerName $NameOfServerToSendMailFrom -ArgumentList $Subject,$Body,$To -ScriptBlock {
+                param ($Subject, $Body, $To)
+                Send-MailMessage -from "HelpDesk@Tervis.com" -To $To -Subject $Subject -Body $Body -SmtpServer $(Get-TervisDNSMXMailServer)
+            }
         }
     }
 }
