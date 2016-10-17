@@ -63,8 +63,6 @@ Function Remove-TervisADUserHomeDirectory {
         $ADUser | Set-ADUser -Clear HomeDirectory
     } else {
         if ($ManagerReceivesFiles) {
-            if( -not $ADUser.Manager) { Throw "ManagerReceivesFiles was specified but the user doesn't have a manager in active directory" }
-        if ($ManagerReceivesFiles) {
             if( -not $ADUser.Manager) { Throw "ManagerReceivesFiles was specified but the user doesn't have a manager in Active Directory" }
             $IdentityOfUserToReceiveHomeDirectoryFiles = $ADUser.Manager
         }        
