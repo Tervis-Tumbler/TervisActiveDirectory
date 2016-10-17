@@ -1,4 +1,4 @@
-﻿#Requires -Modules TervisDNS, ActiveDirectory
+﻿#Requires -Modules TervisDNS, ActiveDirectory, TervisMailMessage
 
 #$ADGroups = get-adgroup -Filter *
 
@@ -43,12 +43,7 @@ Function Remove-TervisADUserHomeDirectory {
     param (
         [parameter(Mandatory)]$Identity,
         [Parameter(Mandatory, ParameterSetName=’ManagerRecievesFiles’)][Switch]$ManagerRecievesFiles,
-        [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]$IdentityOfUserToRecieveHomeDirectoryFiles,
-        
-        [Parameter(Mandatory, ParameterSetName=’ManagerRecievesFiles’)]
-        [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]
-        $NameOfServerToSendMailFrom,
-
+        [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]$IdentityOfUserToRecieveHomeDirectoryFiles,        
         [Parameter(Mandatory, ParameterSetName=’DeleteUsersFiles’)][Switch]$DeleteFilesWithOutMovingThem
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties Manager, HomeDirectory
@@ -111,10 +106,7 @@ This was done as a part of the termination process for $($ADUser.Name).
 
 If you believe you recieved these files incorreclty please contact the Help Desk at x2248.
 "@
-            Invoke-Command -ComputerName $NameOfServerToSendMailFrom -ArgumentList $Subject,$Body,$To -ScriptBlock {
-                param ($Subject, $Body, $To)
-                Send-MailMessage -from "HelpDesk@Tervis.com" -To $To -Subject $Subject -Body $Body -SmtpServer $(Get-TervisDNSMXMailServer)
-            }
+            Send-TervisMailMessage -from "HelpDeskTeam@Tervis.com" -To $To -Subject $Subject -Body $Body
         }
     }
 }
