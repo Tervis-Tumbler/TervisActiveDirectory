@@ -66,7 +66,7 @@ Function Remove-TervisADUserHomeDirectory {
             if( -not $ADUser.Manager) { Throw "ManagerReceivesFiles was specified but the user doesn't have a manager in Active Directory" }
             $IdentityOfUserToReceiveHomeDirectoryFiles = $ADUser.Manager
         }        
-        $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles
+        $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles -Properties EmailAddress
         
         if (-not $ADUserToReceiveFiles) { "Running Get-ADUser for the identity $IdentityOfUserToReceiveHomeDirectoryFiles didn't find an Active Directory user" }
 
@@ -97,7 +97,7 @@ Function Remove-TervisADUserHomeDirectory {
             $ADUser | Set-ADUser -Clear HomeDirectory
         }
 
-        if ($ADUserToReceiveFilesComputer.EmailAddress) {
+        if ($ADUserToReceiveFiles.EmailAddress) {
             $To = $ADUserToReceiveFilesComputer.EmailAddress
             $Subject = "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop"
             $Body = @"
