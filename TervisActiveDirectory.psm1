@@ -10,7 +10,7 @@ function Get-TervisADUser {
         $Properties
     )
     
-    $AdditionalNeededProperites = "msDS-UserPasswordExpiryTimeComputed"
+    $AdditionalNeededProperties = "msDS-UserPasswordExpiryTimeComputed"
     Get-ADUser @PSBoundParameters
 }
 
@@ -42,9 +42,9 @@ Function Find-TervisADUsersComptuer {
 Function Remove-TervisADUserHomeDirectory {
     param (
         [parameter(Mandatory)]$Identity,
-        [Parameter(Mandatory, ParameterSetName=’ManagerRecievesFiles’)][Switch]$ManagerRecievesFiles,
+        [Parameter(Mandatory, ParameterSetName=’ManagerReceivesFiles’)][Switch]$ManagerReceivesFiles,
         [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]$IdentityOfUserToRecieveHomeDirectoryFiles,        
-        [Parameter(Mandatory, ParameterSetName=’DeleteUsersFiles’)][Switch]$DeleteFilesWithOutMovingThem
+        [Parameter(Mandatory, ParameterSetName=’DeleteUsersFiles’)][Switch]$DeleteFilesWithoutMovingThem
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties Manager, HomeDirectory
 
@@ -58,34 +58,36 @@ Function Remove-TervisADUserHomeDirectory {
         Throw "$($ADUser.HomeDirectory) doesn't have $($ADUser.SamAccountName) in it"
     }
 
-    if ($DeleteFilesWithOutMovingThem) {
+    if ($DeleteFilesWithoutMovingThem) {
         Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
         $ADUser | Set-ADUser -Clear HomeDirectory
     } else {
-        if ($ManagerRecievesFiles) {
-            if( -not $ADUser.Manager) { Throw "ManagerRecievesFiles was specified but the user doesn't have a manager in active directory" }
-            $IdentityOfUserToRecieveHomeDirectoryFiles = $ADUser.Manager
+        if ($ManagerReceivesFiles) {
+            if( -not $ADUser.Manager) { Throw "ManagerReceivesFiles was specified but the user doesn't have a manager in active directory" }
+        if ($ManagerReceivesFiles) {
+            if( -not $ADUser.Manager) { Throw "ManagerReceivesFiles was specified but the user doesn't have a manager in Active Directory" }
+            $IdentityOfUserToReceiveHomeDirectoryFiles = $ADUser.Manager
         }        
-        $ADUserToRecieveFiles = Get-ADUser -Identity $IdentityOfUserToRecieveHomeDirectoryFiles
+        $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles
         
-        if (-not $ADUserToRecieveFiles) { "Running Get-ADUser for the identity $IdentityOfUserToRecieveHomeDirectoryFiles didn't find an active directory user" }
+        if (-not $ADUserToReceiveFiles) { "Running Get-ADUser for the identity $IdentityOfUserToReceiveHomeDirectoryFiles didn't find an Active Directory user" }
 
-        $ADUserToRecieveFilesComputer = $ADUserToRecieveFiles | Find-TervisADUsersComptuer
-        if (-not $ADUserToRecieveFilesComputer ) { Throw "Couldn't find an ADComputer with $($ADUserToRecieveFiles.SamAccountName) in the computer's name" }
-        if ($ADUserToRecieveFilesComputer.count -gt 1) { 
-            Throw "We found more than one AD computer for $($ADUserToRecieveFiles.SamAccountName). Run Get-ADUser $($ADUserToRecieveFiles.SamAccountName) | Find-TervisADUsersComptuer -Properties lastlogondate to see the computers"                 
+        $ADUserToReceiveFilesComputer = $ADUserToReceiveFiles | Find-TervisADUsersComptuer
+        if (-not $ADUserToReceiveFilesComputer ) { Throw "Couldn't find an ADComputer with $($ADUserToReceiveFiles.SamAccountName) in the computer's name" }
+        if ($ADUserToReceiveFilesComputer.count -gt 1) { 
+            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run Get-ADUser $($ADUserToReceiveFiles.SamAccountName) | Find-TervisADUsersComptuer -Properties lastlogondate to see the computers"                 
         }
 
-        $PathToADUserToRecieveFilesDesktop = "\\$($ADUserToRecieveFilesComputer.Name)\C$\Users\$($ADUserToRecieveFiles.SAMAccountName)\Desktop"
+        $PathToADUserToReceiveFilesDesktop = "\\$($ADUserToReceiveFilesComputer.Name)\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
 
-        if ($(Test-Path $PathToADUserToRecieveFilesDesktop) -eq $false) {
-            Throw "$PathToADUserToRecieveFilesDesktop doesn't exist so we cannot copy the user's home directory files over"
+        if ($(Test-Path $PathToADUserToReceiveFilesDesktop) -eq $false) {
+            Throw "$PathToADUserToReceiveFilesDesktop doesn't exist so we cannot copy the user's home directory files over"
         }
 
         $DestinationPath = if ($HomeDirectory.Name -eq $ADUser.SAMAccountName) {
-            $PathToADUserToRecieveFilesDesktop
+            $PathToADUserToReceiveFilesDesktop
         } else {
-            "$PathToADUserToRecieveFilesDesktop\$($ADUser.SAMAccountName)"
+            "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)"
         }
 
         Copy-Item -Path $HomeDirectory -Destination $DestinationPath -Recurse
@@ -97,14 +99,14 @@ Function Remove-TervisADUserHomeDirectory {
             $ADUser | Set-ADUser -Clear HomeDirectory
         }
 
-        if ($ADUserToRecieveFilesComputer.EmailAddress) {
-            $To = $ADUserToRecieveFilesComputer.EmailAddress
+        if ($ADUserToReceiveFilesComputer.EmailAddress) {
+            $To = $ADUserToReceiveFilesComputer.EmailAddress
             $Subject = "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop"
             $Body = @"
 $($ADUser.Name)'s home directory files have been moved to your desktop in a folder named $($ADUser.SAMAccountName). 
 This was done as a part of the termination process for $($ADUser.Name).
 
-If you believe you recieved these files incorreclty please contact the Help Desk at x2248.
+If you believe you received these files incorrectly, please contact the Help Desk at x2248.
 "@
             Send-TervisMailMessage -from "HelpDeskTeam@Tervis.com" -To $To -Subject $Subject -Body $Body
         }
