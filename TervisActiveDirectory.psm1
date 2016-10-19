@@ -88,13 +88,15 @@ Function Remove-TervisADUserHomeDirectory {
             "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)"
         }
 
-        Copy-Item -Path $HomeDirectory -Destination $DestinationPath -Recurse
+        Copy-Item -Path $HomeDirectory -Destination $DestinationPath -Recurse -ErrorAction SilentlyContinue
         
         $TotalHomeDirectorySize = Get-ChildItem $HomeDirectory | Measure-Object -property length -sum | select -ExpandProperty Sum
         $TotalCopiedHomeDirectorySize = Get-ChildItem $DestinationPath | Measure-Object -property length -sum | select -ExpandProperty Sum
         if ($TotalHomeDirectorySize -eq $TotalCopiedHomeDirectorySize ) {
             Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
             $ADUser | Set-ADUser -Clear HomeDirectory
+        } else {        
+            Throw "TotalHomeDirectorySize: $TotalHomeDirectorySize didn't equal TotalCopiedHomeDirectorySize: $TotalCopiedHomeDirectorySize"
         }
 
         if ($ADUserToReceiveFiles.EmailAddress) {
