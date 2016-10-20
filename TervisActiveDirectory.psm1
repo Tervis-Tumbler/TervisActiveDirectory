@@ -24,7 +24,7 @@ function Add-ADUserCustomProperties {
     }
 }
 
-Function Find-TervisADUsersComptuer {
+Function Find-TervisADUsersComputer {
     param (
         [Parameter(ValueFromPipelineByPropertyName,Mandatory)]$SAMAccountName,
         [String[]]$Properties
@@ -70,10 +70,10 @@ Function Remove-TervisADUserHomeDirectory {
         
         if (-not $ADUserToReceiveFiles) { "Running Get-ADUser for the identity $IdentityOfUserToReceiveHomeDirectoryFiles didn't find an Active Directory user" }
 
-        $ADUserToReceiveFilesComputer = $ADUserToReceiveFiles | Find-TervisADUsersComptuer
+        $ADUserToReceiveFilesComputer = $ADUserToReceiveFiles | Find-TervisADUsersComputer
         if (-not $ADUserToReceiveFilesComputer ) { Throw "Couldn't find an ADComputer with $($ADUserToReceiveFiles.SamAccountName) in the computer's name" }
         if ($ADUserToReceiveFilesComputer.count -gt 1) { 
-            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run Get-ADUser $($ADUserToReceiveFiles.SamAccountName) | Find-TervisADUsersComptuer -Properties lastlogondate to see the computers"                 
+            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run Get-ADUser $($ADUserToReceiveFiles.SamAccountName) | Find-TervisADUsersComputer -Properties lastlogondate to see the computers"                 
         }
 
         $PathToADUserToReceiveFilesDesktop = "\\$($ADUserToReceiveFilesComputer.Name)\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
@@ -117,6 +117,16 @@ If you believe you received these files incorrectly, please contact the Help Des
             Send-TervisMailMessage -from "HelpDeskTeam@Tervis.com" -To $To -Subject $Subject -Body $Body
         }
     }
+}
+
+function Remove-TervisADUsersComputer {
+    [CmdletBinding()]
+    param (
+        [Parameter(ValueFromPipelineByPropertyName,Mandatory)]$SAMAccountName     
+    )
+
+    Write-Verbose "Removing user's Active Directory computer object(s)"
+    Find-TervisADUsersComputer $SAMAccountName | Remove-ADComputer -Confirm
 }
 
 #function Get-TervisADComputer {
