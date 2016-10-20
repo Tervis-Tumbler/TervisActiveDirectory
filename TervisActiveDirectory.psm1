@@ -106,7 +106,7 @@ Function Remove-TervisADUserHomeDirectory {
         }
 
         if ($ADUserToReceiveFiles.EmailAddress) {
-            $To = $ADUserToReceiveFilesComputer.EmailAddress
+            $To = $ADUserToReceiveFiles.EmailAddress
             $Subject = "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop"
             $Body = @"
 $($ADUser.Name)'s home directory files have been moved to your desktop in a folder named $($ADUser.SAMAccountName). 
