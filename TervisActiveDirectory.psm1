@@ -42,9 +42,9 @@ Function Find-TervisADUsersComputer {
 Function Remove-TervisADUserHomeDirectory {
     param (
         [parameter(Mandatory)]$Identity,
-        [Parameter(Mandatory, ParameterSetName=’ManagerReceivesFiles’)][Switch]$ManagerReceivesFiles,
-        [Parameter(Mandatory, ParameterSetName=’AnotherUserReceivesFiles’)]$IdentityOfUserToReceiveHomeDirectoryFiles,        
-        [Parameter(Mandatory, ParameterSetName=’DeleteUsersFiles’)][Switch]$DeleteFilesWithoutMovingThem
+        [Parameter(Mandatory, ParameterSetName="ManagerReceivesFiles")][Switch]$ManagerReceivesFiles,
+        [Parameter(Mandatory, ParameterSetName="AnotherUserReceivesFiles")]$IdentityOfUserToReceiveHomeDirectoryFiles,        
+        [Parameter(Mandatory, ParameterSetName="DeleteUsersFiles")][Switch]$DeleteFilesWithoutMovingThem
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties Manager, HomeDirectory
 
