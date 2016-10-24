@@ -129,6 +129,10 @@ function Remove-TervisADUsersComputer {
     Find-TervisADUsersComputer $SAMAccountName | Remove-ADComputer -Confirm
 }
 
+Function Get-LoggedOnUserName {
+    Get-aduser $Env:USERNAME | select -ExpandProperty Name
+}
+
 #function Get-TervisADComputer {
 #
 #}
