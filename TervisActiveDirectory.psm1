@@ -133,6 +133,15 @@ Function Get-LoggedOnUserName {
     Get-aduser $Env:USERNAME | select -ExpandProperty Name
 }
 
+Function Get-ADUserEmailAddressByName {
+    param (
+        [Parameter(ValueFromPipelineByPropertyName,Mandatory)]$Name
+    )
+    Get-ADUser -Filter {Name -eq $Name} -Properties EmailAddress |
+    Select -ExpandProperty EmailAddress
+}
+
+
 #function Get-TervisADComputer {
 #
 #}
