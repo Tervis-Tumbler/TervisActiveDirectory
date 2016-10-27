@@ -41,12 +41,11 @@ Function Find-TervisADUsersComputer {
 
 Function Remove-TervisADUserHomeDirectory {
     param (
-        [parameter(Mandatory)]$Identity,
-        [Parameter(Mandatory, ParameterSetName="ManagerReceivesFiles")][Switch]$ManagerReceivesFiles,
-        [Parameter(Mandatory, ParameterSetName="AnotherUserReceivesFiles")]$IdentityOfUserToReceiveHomeDirectoryFiles,        
+        [parameter(Mandatory)]$Identity,       
+        [Parameter(Mandatory, ParameterSetName="AnotherUserReceivesFiles")]$IdentityOfUserToReceiveHomeDirectoryFiles,                
         [Parameter(Mandatory, ParameterSetName="DeleteUsersFiles")][Switch]$DeleteFilesWithoutMovingThem
     )
-    $ADUser = Get-ADUser -Identity $Identity -Properties Manager, HomeDirectory
+    $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
 
     if ($(Test-Path $ADUser.HomeDirectory) -eq $false) {
         Throw "$($ADUser.SamaccountName)'s home directory $($ADUser.HomeDirectory) doesn't exist"
@@ -62,10 +61,6 @@ Function Remove-TervisADUserHomeDirectory {
         Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
         $ADUser | Set-ADUser -Clear HomeDirectory
     } else {
-        if ($ManagerReceivesFiles) {
-            if( -not $ADUser.Manager) { Throw "ManagerReceivesFiles was specified but the user doesn't have a manager in Active Directory" }
-            $IdentityOfUserToReceiveHomeDirectoryFiles = $ADUser.Manager
-        }        
         $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles -Properties EmailAddress
         
         if (-not $ADUserToReceiveFiles) { "Running Get-ADUser for the identity $IdentityOfUserToReceiveHomeDirectoryFiles didn't find an Active Directory user" }
@@ -73,7 +68,11 @@ Function Remove-TervisADUserHomeDirectory {
         $ADUserToReceiveFilesComputer = $ADUserToReceiveFiles | Find-TervisADUsersComputer
         if (-not $ADUserToReceiveFilesComputer ) { Throw "Couldn't find an ADComputer with $($ADUserToReceiveFiles.SamAccountName) in the computer's name" }
         if ($ADUserToReceiveFilesComputer.count -gt 1) { 
-            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run Get-ADUser $($ADUserToReceiveFiles.SamAccountName) | Find-TervisADUsersComputer -Properties lastlogondate to see the computers"                 
+            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run Get-ADUser $($ADUserToReceiveFiles.SamAccountName) | Find-TervisADUsersComputer -Properties lastlogondate to see the computers"
+        }
+
+        if ($ADUserToReceiveFilesComputer | Test-TervisADComputerIsMac) {
+            Throw "ADUserToReceiveFilesComputer: $($ADUserToReceiveFilesComputer.Name) is a Mac, cannot copy the files automatically"            
         }
 
         $PathToADUserToReceiveFilesDesktop = "\\$($ADUserToReceiveFilesComputer.Name)\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
@@ -141,6 +140,13 @@ Function Get-ADUserEmailAddressByName {
     Select -ExpandProperty EmailAddress
 }
 
+Function Test-TervisADComputerIsMac {
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)]$ADComputer
+    )
+
+    $ADComputer.Name -match "-mac"
+}
 
 #function Get-TervisADComputer {
 #
