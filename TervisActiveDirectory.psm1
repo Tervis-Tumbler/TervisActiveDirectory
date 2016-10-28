@@ -47,6 +47,10 @@ Function Remove-TervisADUserHomeDirectory {
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
 
+    if (-not $ADUser.HomeDirectory) {
+        Throw "$($ADUser.SamAccountName)'s home directory not defined"
+    }
+
     if ($(Test-Path $ADUser.HomeDirectory) -eq $false) {
         Throw "$($ADUser.SamaccountName)'s home directory $($ADUser.HomeDirectory) doesn't exist"
     }
