@@ -11,7 +11,7 @@ function Get-TervisADUser {
     )
     
     $AdditionalNeededProperties = "msDS-UserPasswordExpiryTimeComputed"
-    Get-ADUser @PSBoundParameters
+    Get-ADUser @PSBoundParameters | Add-ADUserCustomProperties
 }
 
 function Add-ADUserCustomProperties {
@@ -19,7 +19,7 @@ function Add-ADUserCustomProperties {
         [Parameter(ValueFromPipeline)]$Input
     )
 
-    $Input | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -Value {
+    $Input | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
         [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
     }
 }
