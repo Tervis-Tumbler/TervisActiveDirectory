@@ -55,8 +55,6 @@ Function Remove-TervisADUserHomeDirectory {
         Throw "$($ADUser.SamaccountName)'s home directory $($ADUser.HomeDirectory) doesn't exist"
     }
 
-    $HomeDirectory = Get-Item $ADUser.HomeDirectory
-
     if ($ADUser.HomeDirectory -notmatch $ADUser.SamAccountName) {
         Throw "$($ADUser.HomeDirectory) doesn't have $($ADUser.SamAccountName) in it"
     }
@@ -79,47 +77,75 @@ Function Remove-TervisADUserHomeDirectory {
             Throw "ADUserToReceiveFilesComputer: $($ADUserToReceiveFilesComputer.Name) is a Mac, cannot copy the files automatically"            
         }
 
-        $PathToADUserToReceiveFilesDesktop = "\\$($ADUserToReceiveFilesComputer.Name)\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
+        Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer -ErrorAction Stop -Identity $Identity -IdentityOfUserToReceiveHomeDirectoryFiles $IdentityOfUserToReceiveHomeDirectoryFiles -ADUserToReceiveFilesComputer $ADUserToReceiveFilesComputer
+    }
+}
 
-        if ($(Test-Path $PathToADUserToReceiveFilesDesktop) -eq $false) {
-            Throw "$PathToADUserToReceiveFilesDesktop doesn't exist so we cannot copy the user's home directory files over"
-        }
+Function Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory)]$Identity,       
+        [Parameter(Mandatory)]$IdentityOfUserToReceiveHomeDirectoryFiles,
+        [Parameter(Mandatory)]$ADUserToReceiveFilesComputer
+    )
+    $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
+    $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles -Properties EmailAddress
 
-        $DestinationPath = if ($HomeDirectory.Name -eq $ADUser.SAMAccountName) {
-            $PathToADUserToReceiveFilesDesktop
-        } else {
-            "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)"
-        }
+    $PathToADUserToReceiveFilesDesktop = "\\$($ADUserToReceiveFilesComputer.Name)\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
 
-        Copy-Item -Path $HomeDirectory -Destination $DestinationPath -Recurse -ErrorAction SilentlyContinue
+    if ($(Test-Path $PathToADUserToReceiveFilesDesktop) -eq $false) {
+        Throw "$PathToADUserToReceiveFilesDesktop doesn't exist so we cannot copy the user's home directory files over"
+    }
+
+    $HomeDirectory = Get-Item $ADUser.HomeDirectory
+
+    $DestinationPath = if ($HomeDirectory.Name -eq $ADUser.SAMAccountName) {
+        $PathToADUserToReceiveFilesDesktop
+    } else {
+        "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)"
+    }
         
-        $TotalHomeDirectorySize = Get-ChildItem $HomeDirectory -Recurse -Force | 
-            Measure-Object -property length -sum | 
-            select -ExpandProperty Sum
+    Copy-Item -Path $HomeDirectory -Destination $DestinationPath -Recurse -ErrorAction SilentlyContinue
+    
+    if (Test-DirectoriesSameSize -ReferenceDirectory $HomeDirectory -DifferenceDirectory $DestinationPath) {
+        Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
+        $ADUser | Set-ADUser -Clear HomeDirectory
+    } else {        
+        Throw "Size of $HomeDirectory does not equal $DestinationPath after copying the files"
+    }
 
-        $TotalCopiedHomeDirectorySize = Get-ChildItem "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)" -Recurse -Force | 
-            Measure-Object -property length -sum | 
-            select -ExpandProperty Sum
-        
-        if ($TotalHomeDirectorySize -eq $TotalCopiedHomeDirectorySize ) {
-            Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
-            $ADUser | Set-ADUser -Clear HomeDirectory
-        } else {        
-            Throw "TotalHomeDirectorySize: $TotalHomeDirectorySize didn't equal TotalCopiedHomeDirectorySize: $TotalCopiedHomeDirectorySize"
-        }
-
-        if ($ADUserToReceiveFiles.EmailAddress) {
-            $To = $ADUserToReceiveFiles.EmailAddress
-            $Subject = "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop"
-            $Body = @"
+    if ($ADUserToReceiveFiles.EmailAddress) {
+        $To = $ADUserToReceiveFiles.EmailAddress
+        $Subject = "$($ADUser.SAMAccountName)'s home directory files have been moved to your desktop"
+        $Body = @"
 $($ADUser.Name)'s home directory files have been moved to your desktop in a folder named $($ADUser.SAMAccountName). 
 This was done as a part of the termination process for $($ADUser.Name).
 
 If you believe you received these files incorrectly, please contact the Help Desk at x2248.
 "@
-            Send-TervisMailMessage -from "HelpDeskTeam@Tervis.com" -To $To -Subject $Subject -Body $Body
-        }
+        Send-TervisMailMessage -from "HelpDeskTeam@Tervis.com" -To $To -Subject $Subject -Body $Body
     }
+}
+
+
+Function Test-DirectoriesSameSize {
+    param (
+        [parameter(Mandatory)]$ReferenceDirectory,
+        [parameter(Mandatory)]$DifferenceDirectory
+    )
+    $TotalReferenceDirectory = Get-DirecotrySize -Directory $ReferenceDirectory
+    $TotalDifferenceDirectory = Get-DirecotrySize -Directory $DifferenceDirectory
+
+    $TotalReferenceDirectory -eq $TotalDifferenceDirectory
+}
+
+Function Get-DirecotrySize {
+    param (
+        [parameter(Mandatory)][System.IO.DirectoryInfo]$Directory
+    )
+    Get-ChildItem $Directory -Recurse -Force | 
+    Measure-Object -property length -sum | 
+    select -ExpandProperty Sum
 }
 
 function Remove-TervisADUsersComputer {
