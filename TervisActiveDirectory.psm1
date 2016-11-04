@@ -98,16 +98,17 @@ Function Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer {
     }
 
     $HomeDirectory = Get-Item $ADUser.HomeDirectory
+    $PathToFolderToContainUsersCopiedHomeDirectory = "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)"
 
     $DestinationPath = if ($HomeDirectory.Name -eq $ADUser.SAMAccountName) {
         $PathToADUserToReceiveFilesDesktop
     } else {
-        "$PathToADUserToReceiveFilesDesktop\$($ADUser.SAMAccountName)"
+        $PathToFolderToContainUsersCopiedHomeDirectory
     }
         
     Copy-Item -Path $HomeDirectory -Destination $DestinationPath -Recurse -ErrorAction SilentlyContinue
     
-    if (Test-DirectoriesSameSize -ReferenceDirectory $HomeDirectory -DifferenceDirectory $DestinationPath) {
+    if (Test-DirectoriesSameSize -ReferenceDirectory $HomeDirectory -DifferenceDirectory $PathToFolderToContainUsersCopiedHomeDirectory) {
         Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
         $ADUser | Set-ADUser -Clear HomeDirectory
     } else {        
