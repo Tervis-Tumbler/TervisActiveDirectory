@@ -77,7 +77,7 @@ Function Remove-TervisADUserHomeDirectory {
             Throw "ADUserToReceiveFilesComputer: $($ADUserToReceiveFilesComputer.Name) is a Mac, cannot copy the files automatically"            
         }
 
-        Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer -ErrorAction Stop -Identity $Identity -IdentityOfUserToReceiveHomeDirectoryFiles $IdentityOfUserToReceiveHomeDirectoryFiles -ADUserToReceiveFilesComputer $ADUserToReceiveFilesComputer
+        Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer -ErrorAction Stop -Identity $Identity -IdentityOfUserToReceiveHomeDirectoryFiles $IdentityOfUserToReceiveHomeDirectoryFiles -ADUserToReceiveFilesComputerName $ADUserToReceiveFilesComputer.Name
     }
 }
 
@@ -86,12 +86,12 @@ Function Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer {
     param (
         [parameter(Mandatory)]$Identity,       
         [Parameter(Mandatory)]$IdentityOfUserToReceiveHomeDirectoryFiles,
-        [Parameter(Mandatory)]$ADUserToReceiveFilesComputer
+        [Parameter(Mandatory)]$ADUserToReceiveFilesComputerName
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
     $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles -Properties EmailAddress
 
-    $PathToADUserToReceiveFilesDesktop = "\\$($ADUserToReceiveFilesComputer.Name)\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
+    $PathToADUserToReceiveFilesDesktop = "\\$ADUserToReceiveFilesComputerName\C$\Users\$($ADUserToReceiveFiles.SAMAccountName)\Desktop"
 
     if ($(Test-Path $PathToADUserToReceiveFilesDesktop) -eq $false) {
         Throw "$PathToADUserToReceiveFilesDesktop doesn't exist so we cannot copy the user's home directory files over"
