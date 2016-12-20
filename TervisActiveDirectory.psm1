@@ -179,6 +179,16 @@ Function Test-TervisADComputerIsMac {
     $ADComputer.Name -match "-mac"
 }
 
+function Get-ADUserLogonFailEventInformation {
+    $DomainControllers = (Get-ADGroupMember 'Domain Controllers').name | select -First 2
+    Foreach ($DomainController in $DomainControllers) {
+        Get-ADUser -Filter {enabled -eq $true} -SearchBase "OU=Departments,DC=tervis,DC=prv" -Properties BadLogonCount, LockedOut, LastLogonDate -Server $DomainController|
+        Where BadLogonCount -gt 5 | 
+        Select Name, SamAccountName, LockedOut, BadLogonCount, LastLogonDate |
+        Add-Member -MemberType NoteProperty -Name DomainController -Value $DomainController -PassThru
+    }
+}
+
 #function Get-TervisADComputer {
 #
 #}
