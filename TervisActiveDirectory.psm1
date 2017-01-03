@@ -171,6 +171,13 @@ Function Get-ADUserEmailAddressByName {
     Select -ExpandProperty EmailAddress
 }
 
+function Get-ADUserByEmployeeID {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$EmployeeID
+    )
+    Get-ADUser -Filter {Employeeid -eq $EmployeeID} -Properties EmployeeID
+}
+
 Function Test-TervisADComputerIsMac {
     param (
         [Parameter(Mandatory,ValueFromPipeline)]$ADComputer
