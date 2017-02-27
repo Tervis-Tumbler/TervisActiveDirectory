@@ -70,18 +70,18 @@ Function Remove-TervisADUserHomeDirectory {
         $ADUserToReceiveFilesComputer = $ADUserToReceiveFiles | Find-TervisADUsersComputer
         if (-not $ADUserToReceiveFilesComputer ) { Throw "Couldn't find an ADComputer with $($ADUserToReceiveFiles.SamAccountName) in the computer's name" }
         if ($ADUserToReceiveFilesComputer.count -gt 1) { 
-            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run Get-ADUser $($ADUserToReceiveFiles.SamAccountName) | Find-TervisADUsersComputer -Properties lastlogondate to see the computers"
+            Throw "We found more than one AD computer for $($ADUserToReceiveFiles.SamAccountName). Run: `nFind-TervisADUsersComputer -SamAccountName $($ADUserToReceiveFiles.SamAccountName) -Properties LastLogonDate `nto see the computers. Once the correct computer has been found, run the following command: `nInvoke-CopyADUsersHomeDirectoryToADUserToReceiveFilesComputer -Identity $Identity -IdentityOfUserToReceiveHomeDirectoryFiles $IdentityOfUserToReceiveHomeDirectoryFiles -ADUserToReceiveFilesComputerName <COMPUTERNAME>`nwhere <COMPUTERNAME> is replaced by the name of the destination computer. Once completed, rerun Remove-TervisUser."
         }
 
         if ($ADUserToReceiveFilesComputer | Test-TervisADComputerIsMac) {
             Throw "ADUserToReceiveFilesComputer: $($ADUserToReceiveFilesComputer.Name) is a Mac, cannot copy the files automatically"            
         }
 
-        Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer -ErrorAction Stop -Identity $Identity -IdentityOfUserToReceiveHomeDirectoryFiles $IdentityOfUserToReceiveHomeDirectoryFiles -ADUserToReceiveFilesComputerName $ADUserToReceiveFilesComputer.Name
+        Invoke-CopyADUsersHomeDirectoryToADUserToReceiveFilesComputer -ErrorAction Stop -Identity $Identity -IdentityOfUserToReceiveHomeDirectoryFiles $IdentityOfUserToReceiveHomeDirectoryFiles -ADUserToReceiveFilesComputerName $ADUserToReceiveFilesComputer.Name
     }
 }
 
-Function Invoke-CopyADUsersHomeDirectoryToADUserToRecieveFilesComputer {
+Function Invoke-CopyADUsersHomeDirectoryToADUserToReceiveFilesComputer {
     [CmdletBinding()]
     param (
         [parameter(Mandatory)]$Identity,       
