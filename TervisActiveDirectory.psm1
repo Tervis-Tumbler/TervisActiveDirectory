@@ -196,6 +196,33 @@ function Get-ADUserLogonFailEventInformation {
     }
 }
 
+function Invoke-SwitchComputersCurrentDomainController {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]$ComputerName,
+        [Parameter(Mandatory=$true)]$DomainControllerToSwitchTo,
+        [switch]$RestartNIC
+    )
+
+    $CurrentDomain = $env:USERDOMAIN
+
+    Write-Verbose "$ComputerName`: switching domain controller to $DomainControllerToSwitchTo"
+    Invoke-Command -ComputerName $ComputerName -ArgumentList $DomainControllerToSwitchTo,$CurrentDomain -ScriptBlock {
+        param (
+            $DomainControllerToSwitchTo,
+            $CurrentDomain
+            )
+        nltest /SC_RESET:$CurrentDomain\$DomainControllerToSwitchTo
+    }
+    
+    if ($RestartNIC) {
+        Write-Verbose "Restarted connected NIC on $ComputerName"
+        sleep -Seconds 5
+        Restart-ConnectedNetworkInterface -ComputerName $ComputerName
+    }
+}
+
+
 #function Get-TervisADComputer {
 #
 #}
