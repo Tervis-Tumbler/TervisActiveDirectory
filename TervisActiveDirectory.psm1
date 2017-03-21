@@ -222,6 +222,15 @@ function Invoke-SwitchComputersCurrentDomainController {
     }
 }
 
+function Invoke-ADAzureSync {
+    param (
+        [Parameter(Mandatory)]$Server
+    )
+
+    $DC = Get-ADDomainController
+    Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /ed}
+    Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
+}
 
 #function Get-TervisADComputer {
 #
