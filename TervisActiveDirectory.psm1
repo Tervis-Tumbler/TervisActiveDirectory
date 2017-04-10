@@ -39,7 +39,44 @@ Function Find-TervisADUsersComputer {
     }
 }
 
-Function Remove-TervisADUserHomeDirectory {
+function Invoke-TervisADUserShareHomeDirectoryPathAndClearHomeDirectoryProperty {
+    param (
+        [parameter(Mandatory)]$Identity,       
+        [Parameter(Mandatory)]$IdentityOfUserToAccessHomeDirectoryFiles
+    )
+    $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
+    $Path = $ADUser.HomeDirectory 
+    $ACL = Get-Acl -Path $Path
+    $AccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($IdentityOfUserToAccessHomeDirectoryFiles, "Modify","ContainerInherit,ObjectInherit", "None", "Allow")
+    $ACL.SetAccessRule($AccessRule)
+    Set-Acl -path $Path -AclObject $Acl
+
+    $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToAccessHomeDirectoryFiles -Properties EmailAddress
+    if ($ADUserToReceiveFiles.EmailAddress) {
+        $To = $ADUserToReceiveFiles.EmailAddress
+        $Subject = "$($ADUser.SAMAccountName)'s home directory files have been shared with you"
+        $Body = @"
+$($ADUser.Name)'s home directory files have been shared with you.
+You can access the files by going to $($ADUser.HomeDirectory). 
+This was done as a part of the termination process for $($ADUser.Name).
+
+If you believe you received this email incorrectly, please contact the Help Desk at x2248.
+"@
+        Send-TervisMailMessage -from "HelpDeskTeam@Tervis.com" -To $To -Subject $Subject -Body $Body
+    }
+    $ADUser | Set-ADUser -Clear HomeDirectory
+}
+
+function Remove-TervisADUserHomeDirectory {
+    param (
+        [parameter(Mandatory)]$Identity       
+    )
+    $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
+    Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
+    $ADUser | Set-ADUser -Clear HomeDirectory
+}
+
+Function Invoke-TervisADUserHomeDirectoryDecomission {
     param (
         [parameter(Mandatory)]$Identity,       
         [Parameter(Mandatory, ParameterSetName="AnotherUserReceivesFiles")]$IdentityOfUserToReceiveHomeDirectoryFiles,                
@@ -60,8 +97,7 @@ Function Remove-TervisADUserHomeDirectory {
     }
 
     if ($DeleteFilesWithoutMovingThem) {
-        Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
-        $ADUser | Set-ADUser -Clear HomeDirectory
+        Remove-TervisADUserHomeDirectory -Identity $Identity
     } else {
         $ADUserToReceiveFiles = Get-ADUser -Identity $IdentityOfUserToReceiveHomeDirectoryFiles -Properties EmailAddress
         
