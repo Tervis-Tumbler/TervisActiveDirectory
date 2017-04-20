@@ -243,12 +243,8 @@ function Invoke-SwitchComputersCurrentDomainController {
     $CurrentDomain = $env:USERDOMAIN
 
     Write-Verbose "$ComputerName`: switching domain controller to $DomainControllerToSwitchTo"
-    Invoke-Command -ComputerName $ComputerName -ArgumentList $DomainControllerToSwitchTo,$CurrentDomain -ScriptBlock {
-        param (
-            $DomainControllerToSwitchTo,
-            $CurrentDomain
-            )
-        nltest /SC_RESET:$CurrentDomain\$DomainControllerToSwitchTo
+    Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+        nltest /SC_RESET:$Using:CurrentDomain\$Using:DomainControllerToSwitchTo
     }
     
     if ($RestartNIC) {
@@ -294,3 +290,48 @@ function Invoke-ADAzureSync {
 #        #}
 #    }
 #}
+
+function Remove-TervisADUser {
+    [CMDLetBinding()]
+    param(
+        [Parameter(Mandatory)]$Identity,
+        [Switch]$RemoveGroupos
+    )
+    $ADUser = Get-ADUser $Identity -Properties DistinguishedName,ProtectedFromAccidentalDeletion
+
+    Write-Verbose "Setting a 120 character strong password on the user account"
+    $Password = New-RandomPassword
+    $SecurePassword = ConvertTo-SecureString $Password -asplaintext -force
+    Set-ADAccountPassword -Identity $identity -NewPassword $SecurePassword
+
+    Write-Verbose "Moving user account to the 'Comapny - Disabled Accounts' OU in AD"
+    if ($ADUser.ProtectedFromAccidentalDeletion) {
+        Set-ADObject -Identity $ADUser.DistinguishedName -ProtectedFromAccidentalDeletion $false
+    }
+    $OrganizationalUnit = Get-ADOrganizationalUnit -filter * | 
+    where DistinguishedName -like "OU=Company- Disabled Accounts*" | 
+    select -ExpandProperty DistinguishedName
+
+    Move-ADObject -Identity $ADUser.DistinguishedName -TargetPath $OrganizationalUnit
+    $NewDistinguishedName = (Get-ADUser -Identity $Identity).DistinguishedName
+
+    if ($RemoveGroups) {
+        Write-Verbose "Removing all AD group memberships"
+        $Groups = Get-ADUser $Identity -Properties MemberOf | select -ExpandProperty MemberOf
+        foreach ($Group in $Groups) {
+            Remove-ADGroupMember -Identity $Group -Members $Identity -Confirm:$false
+        }
+    }
+
+    Write-Verbose "Disabling AD account"
+    Disable-ADAccount $Identity
+
+    Write-Verbose "Setting AD account expiration"
+    Set-ADAccountExpiration $Identity -DateTime (get-date)
+}
+
+function New-RandomPassword {
+    #https://msdn.microsoft.com/en-us/library/system.web.security.membership.generatepassword(v=vs.110).aspx
+    Add-Type -AssemblyName System.Web
+    [System.Web.Security.Membership]::GeneratePassword(120,10)
+}
