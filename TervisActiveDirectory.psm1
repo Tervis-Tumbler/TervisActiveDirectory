@@ -343,7 +343,7 @@ function Remove-TervisADComputerObjectforVM{
         [switch]$PassThru
     )
     $NodeToDelete = $VM.Name
-    Get-ADComputer -Identity $NodeToDelete | Remove-ADComputer -Confirm
+    Get-ADComputer -Identity $NodeToDelete | Remove-ADObject -Recursive -Confirm
 
     if($PassThru) {$VM}
 }
