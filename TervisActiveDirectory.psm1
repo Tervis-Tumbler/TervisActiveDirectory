@@ -335,3 +335,15 @@ function New-RandomPassword {
     Add-Type -AssemblyName System.Web
     [System.Web.Security.Membership]::GeneratePassword(120,10)
 }
+
+function Remove-TervisADComputerObjectforVM{
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory, ValueFromPipeline)]$VM,
+        [switch]$PassThru
+    )
+    $NodeToDelete = $VM.Name
+    Get-ADComputer -Identity $NodeToDelete | Remove-ADComputer -Confirm
+
+    if($PassThru) {$VM}
+}
