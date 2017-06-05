@@ -347,3 +347,13 @@ function Remove-TervisADComputerObjectforVM{
 
     if($PassThru) {$VM}
 }
+
+function Remove-TervisADComputerObject {
+    param(
+        [parameter(Mandatory, ValueFromPipeline)]$ComputerName
+    )
+    process {
+        Get-ADComputer -Identity $ComputerName | 
+        Remove-ADObject -Recursive -Confirm
+    }
+}
