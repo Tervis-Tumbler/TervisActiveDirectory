@@ -336,18 +336,6 @@ function New-RandomPassword {
     [System.Web.Security.Membership]::GeneratePassword(120,10)
 }
 
-function Remove-TervisADComputerObjectforVM{
-    [CmdletBinding()]
-    param(
-        [parameter(Mandatory, ValueFromPipeline)]$VM,
-        [switch]$PassThru
-    )
-    $NodeToDelete = $VM.Name
-    Get-ADComputer -Identity $NodeToDelete | Remove-ADObject -Recursive -Confirm
-
-    if($PassThru) {$VM}
-}
-
 function Remove-TervisADComputerObject {
     param(
         [parameter(Mandatory, ValueFromPipeline)]$ComputerName
