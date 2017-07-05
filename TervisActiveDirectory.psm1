@@ -345,3 +345,52 @@ function Remove-TervisADComputerObject {
         Remove-ADObject -Recursive -Confirm
     }
 }
+
+function Disable-InactiveADComputers {
+    $AdComputersToDisable = Get-ADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
+        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-30).Ticks -and `
+            $_.Enabled -eq $true -and `
+            $_.Created -lt (Get-Date).AddDays(-30) -and `
+            $_.Name -notlike "TP9*" -and `
+            $_.OperatingSystem -notlike "Windows Server*" -and `
+            $_.OperatingSystem -ne "RHEL" -and `
+            $_.OperatingSystem -ne "Mac OS X" -and `
+            $_.OperatingSystem -ne $null} | `
+        Sort Name
+    $AdComputersToDisable | Disable-ADAccount -Confirm:$false
+}
+
+function Remove-InactiveADComputers {
+    $AdComputersToDelete = Get-ADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
+        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-190).Ticks -and `
+            $_.Enabled -eq $true -and `
+            $_.Created -lt (Get-Date).AddDays(-30) -and `
+            $_.OperatingSystem -notlike "Windows Server*" -and `
+            $_.OperatingSystem -ne $null} | `
+        Sort Name
+    $AdComputersToDelete | Remove-ADComputer -Confirm:$false
+}
+
+function Disable-InactiveADUsers {
+    $AdUsersToDisable = Get-ADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
+        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-30).Ticks -and `
+            $_.Enabled -eq $true -and `
+            $_.Created -lt (Get-Date).AddDays(-60) -and `
+            $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and `
+            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
+            $_.Name -notlike "HealthMailbox*"} | `
+        sort name
+    $AdUsersToDisable | Disable-ADAccount -Confirm:$false
+}
+
+function Remove-InactiveADUsers {
+    $AdUsersToDelete = Get-ADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled | `
+        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-190).Ticks -and `
+            $_.Enabled -eq $true -and `
+            $_.Created -lt (Get-Date).AddDays(-60) -and `
+            $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and `
+            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
+            $_.Name -notlike "HealthMailbox*"} | `
+        sort Name
+    $AdUsersToDelete | Remove-ADUser -Confirm:$false
+}
