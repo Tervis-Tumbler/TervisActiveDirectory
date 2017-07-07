@@ -304,13 +304,19 @@ function Remove-TervisADUser {
     $SecurePassword = ConvertTo-SecureString $Password -asplaintext -force
     Set-ADAccountPassword -Identity $identity -NewPassword $SecurePassword
 
-    Write-Verbose "Moving user account to the 'Comapny - Disabled Accounts' OU in AD"
+    Write-Verbose "Moving user account to the appropriate OU"
     if ($ADUser.ProtectedFromAccidentalDeletion) {
         Set-ADObject -Identity $ADUser.DistinguishedName -ProtectedFromAccidentalDeletion $false
     }
-    $OrganizationalUnit = Get-ADOrganizationalUnit -filter * | 
-    where DistinguishedName -like "OU=Company- Disabled Accounts*" | 
-    select -ExpandProperty DistinguishedName
+    If (Test-TervisUserHasOffice365Mailbox -Identity $Identity) {
+        $OrganizationalUnit = Get-ADOrganizationalUnit -filter * | 
+        where DistinguishedName -like "OU=Shared Mailbox,OU=Exchange,DC=*" | 
+        select -ExpandProperty DistinguishedName
+    } else {
+        $OrganizationalUnit = Get-ADOrganizationalUnit -filter * | 
+        where DistinguishedName -like "OU=Company- Disabled Accounts*" | 
+        select -ExpandProperty DistinguishedName
+    }
 
     Move-ADObject -Identity $ADUser.DistinguishedName -TargetPath $OrganizationalUnit
     $NewDistinguishedName = (Get-ADUser -Identity $Identity).DistinguishedName
