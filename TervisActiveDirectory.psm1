@@ -384,17 +384,40 @@ function Disable-InactiveADComputers {
             $_.OperatingSystem -ne "Mac OS X" -and `
             $_.OperatingSystem -ne $null} | `
         Sort Name
+    [string]$AdComputersToDisableCount = ($AdComputersToDisable).count
+    if ($AdComputersToDisableCount -ge "1") {
+        $Body = "The following $AdComputersToDisableCount computers are being disabled. `n" 
+        $Body += "Computer Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        foreach ($ADComputer in $AdComputersToDisable) {
+            $Body += ($ADComputer).name + "`t" + ($ADComputer).TervisLastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
+        }
+        $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
+        $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
+        $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
+        Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Disabled' -Body $Body -SmtpServer $SMTPServer
+    }
     $AdComputersToDisable | Disable-ADAccount -Confirm:$false
 }
 
 function Remove-InactiveADComputers {
-    $AdComputersToDelete = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
+    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
-            $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-30) -and `
             $_.OperatingSystem -notlike "Windows Server*" -and `
             $_.OperatingSystem -ne $null} | `
         Sort Name
+    [string]$AdComputersToDeleteCount = ($AdComputersToDelete).count
+    if ($AdComputersToDisableCount -ge "1") {
+        $Body = "The following $AdComputersToDisableCount computers are being deleted. `n" 
+        $Body += "Computer Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        foreach ($ADComputer in $AdComputersToDelete) {
+            $Body += ($ADComputer).name + "`t" + ($ADComputer).TervisLastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
+        }
+        $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
+        $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
+        $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
+        Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
+    }
     $AdComputersToDelete | Remove-ADComputer -Confirm:$false
 }
 
@@ -407,17 +430,40 @@ function Disable-InactiveADUsers {
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
             $_.Name -notlike "HealthMailbox*"} | `
         sort name
+    [string]$AdUsersToDisableCount = ($AdUsersToDisable).count
+    if ($AdUsersToDisableCount -ge "1") {
+        $Body = "The following $AdUsersToDisableCount users are being disabled. `n" 
+        $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        foreach ($ADUser in $AdUsersToDisable) {
+            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`t" + ($ADUser).operatingsystem + "`n"
+        }
+        $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
+        $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
+        $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
+        Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Disabled' -Body $Body -SmtpServer $SMTPServer
+    }
     $AdUsersToDisable | Disable-ADAccount -Confirm:$false
 }
 
 function Remove-InactiveADUsers {
-    $AdUsersToDelete = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled | `
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | `
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
-            $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-60) -and `
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and `
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
             $_.Name -notlike "HealthMailbox*"} | `
         sort Name
+    [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
+    if ($AdUsersToDeleteCount -ge "1") {
+        $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
+        $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        foreach ($ADUser in $AdUsersToDelete) {
+            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`t" + ($ADUser).operatingsystem + "`n"
+        }
+        $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
+        $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
+        $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
+        Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
+    }
     $AdUsersToDelete | Remove-ADUser -Confirm:$false
 }
