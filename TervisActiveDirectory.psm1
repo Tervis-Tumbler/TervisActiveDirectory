@@ -10,7 +10,7 @@ function Get-TervisADUser {
         $Properties
     )
     
-    $AdditionalNeededProperties = "msDS-UserPasswordExpiryTimeComputed"
+    $AdditionalNeededProperties = "msDS-UserPasswordExpiryTimeComputed,lastLogonTimestamp"
     Get-ADUser @PSBoundParameters | Add-ADUserCustomProperties
 }
 
@@ -21,6 +21,9 @@ function Add-ADUserCustomProperties {
 
     $Input | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
         [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
+    } | `
+    Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
+        [datetime]::FromFileTime($This.“lastLogonTimestamp”)
     }
 }
 
@@ -264,10 +267,28 @@ function Invoke-ADAzureSync {
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
 }
 
-#function Get-TervisADComputer {
-#
-#}
-#
+function Get-TervisADComputer {
+    param (
+        $Identity,
+        $Path,
+        $Filter,
+        $Properties
+    )
+    
+    $AdditionalNeededProperties = "lastLogonTimestamp"
+    Get-ADComputer @PSBoundParameters | Add-ADComputerCustomProperties
+}
+
+function Add-ADComputerCustomProperties {
+    param (
+        [Parameter(ValueFromPipeline)]$Input
+    )
+
+    $Input | Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
+        [datetime]::FromFileTime($This.“lastLogonTimestamp”)
+    }
+}
+
 #function Add-ADComputerCustomProperties {
 #    param (
 #        [Parameter(ValueFromPipeline,Mandatory)]$Input
@@ -353,8 +374,8 @@ function Remove-TervisADComputerObject {
 }
 
 function Disable-InactiveADComputers {
-    $AdComputersToDisable = Get-ADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
-        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-30).Ticks -and `
+    $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and `
             $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-30) -and `
             $_.Name -notlike "TP9*" -and `
@@ -367,8 +388,8 @@ function Disable-InactiveADComputers {
 }
 
 function Remove-InactiveADComputers {
-    $AdComputersToDelete = Get-ADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
-        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-190).Ticks -and `
+    $AdComputersToDelete = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
             $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-30) -and `
             $_.OperatingSystem -notlike "Windows Server*" -and `
@@ -378,8 +399,8 @@ function Remove-InactiveADComputers {
 }
 
 function Disable-InactiveADUsers {
-    $AdUsersToDisable = Get-ADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
-        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-30).Ticks -and `
+    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and `
             $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-60) -and `
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and `
@@ -390,8 +411,8 @@ function Disable-InactiveADUsers {
 }
 
 function Remove-InactiveADUsers {
-    $AdUsersToDelete = Get-ADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled | `
-        where {$_.LastLogonTimestamp -lt (Get-Date).AddYears(-1600).AddDays(-190).Ticks -and `
+    $AdUsersToDelete = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled | `
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
             $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-60) -and `
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and `
