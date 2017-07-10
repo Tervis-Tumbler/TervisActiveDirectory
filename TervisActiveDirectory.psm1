@@ -418,18 +418,25 @@ function Remove-InactiveADComputers {
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
     }
-    $AdComputersToDelete | Remove-ADComputer -Confirm:$false
+    $AdComputersToDelete | Remove-ADComputer -Recursive -Confirm:$false
+    $AdComputersToDelete | Remove-TervisDNSRecord
 }
 
 function Disable-InactiveADUsers {
+    $AdUsersToDisable = @()
     $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and `
             $_.Enabled -eq $true -and `
             $_.Created -lt (Get-Date).AddDays(-60) -and `
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and `
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
-            $_.Name -notlike "HealthMailbox*"} | `
-        sort name
+            $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
+    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and `
+            $_.Enabled -eq $true -and `
+            $_.Created -lt (Get-Date).AddDays(-60) -and `
+            $_.DistinguishedName -match "OU=Accounts - Service,DC="}
+    $AdUsersToDisable = $AdUsersToDisable | sort Name
     [string]$AdUsersToDisableCount = ($AdUsersToDisable).count
     if ($AdUsersToDisableCount -ge "1") {
         $Body = "The following $AdUsersToDisableCount users are being disabled. `n" 
@@ -446,13 +453,18 @@ function Disable-InactiveADUsers {
 }
 
 function Remove-InactiveADUsers {
+    $AdUsersToDelete = @()
     $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | `
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
             $_.Created -lt (Get-Date).AddDays(-60) -and `
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and `
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
-            $_.Name -notlike "HealthMailbox*"} | `
-        sort Name
+            $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | `
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and `
+            $_.Created -lt (Get-Date).AddDays(-60) -and `
+            $_.DistinguishedName -match "OU=Accounts - Service,DC="}
+    $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
         $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
