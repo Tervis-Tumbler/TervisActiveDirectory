@@ -479,3 +479,12 @@ function Remove-InactiveADUsers {
     }
     $AdUsersToDelete | Remove-ADUser -Confirm:$false
 }
+
+function Get-ADUserPhoto {
+    param (
+        $Identity,
+        $Path = $Home
+    )
+    $ADUser = get-aduser -Identity $Identity -Properties thumbnailphoto
+    [System.Io.File]::WriteAllBytes("$Path\$Identity.jpg", $ADUser.Thumbnailphoto)
+}
