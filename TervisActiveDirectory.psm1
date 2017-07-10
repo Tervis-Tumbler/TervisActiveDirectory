@@ -21,7 +21,7 @@ function Add-ADUserCustomProperties {
 
     $Input | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
         [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
-    } | `
+    } |
     Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
         [datetime]::FromFileTime($This.“lastLogonTimestamp”)
     }
@@ -374,15 +374,15 @@ function Remove-TervisADComputerObject {
 }
 
 function Disable-InactiveADComputers {
-    $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and `
-            $_.Enabled -eq $true -and `
-            $_.Created -lt (Get-Date).AddDays(-30) -and `
-            $_.Name -notlike "TP9*" -and `
-            $_.OperatingSystem -notlike "Windows Server*" -and `
-            $_.OperatingSystem -ne "RHEL" -and `
-            $_.OperatingSystem -ne "Mac OS X" -and `
-            $_.OperatingSystem -ne $null} | `
+    $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and 
+            $_.Enabled -eq $true -and 
+            $_.Created -lt (Get-Date).AddDays(-30) -and 
+            $_.Name -notlike "TP9*" -and 
+            $_.OperatingSystem -notlike "Windows Server*" -and 
+            $_.OperatingSystem -ne "RHEL" -and 
+            $_.OperatingSystem -ne "Mac OS X" -and 
+            $_.OperatingSystem -ne $null} | 
         Sort Name
     [string]$AdComputersToDisableCount = ($AdComputersToDisable).count
     if ($AdComputersToDisableCount -ge "1") {
@@ -400,11 +400,11 @@ function Disable-InactiveADComputers {
 }
 
 function Remove-InactiveADComputers {
-    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem | `
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
-            $_.Created -lt (Get-Date).AddDays(-30) -and `
-            $_.OperatingSystem -notlike "Windows Server*" -and `
-            $_.OperatingSystem -ne $null} | `
+    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
+            $_.Created -lt (Get-Date).AddDays(-30) -and 
+            $_.OperatingSystem -notlike "Windows Server*" -and 
+            $_.OperatingSystem -ne $null} | 
         Sort Name
     [string]$AdComputersToDeleteCount = ($AdComputersToDelete).count
     if ($AdComputersToDisableCount -ge "1") {
@@ -424,17 +424,17 @@ function Remove-InactiveADComputers {
 
 function Disable-InactiveADUsers {
     $AdUsersToDisable = @()
-    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and `
-            $_.Enabled -eq $true -and `
-            $_.Created -lt (Get-Date).AddDays(-60) -and `
-            $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and `
-            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
+    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and 
+            $_.Enabled -eq $true -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and 
+            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and 
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
-    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | `
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and `
-            $_.Enabled -eq $true -and `
-            $_.Created -lt (Get-Date).AddDays(-60) -and `
+    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and
+            $_.Enabled -eq $true -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC="}
     $AdUsersToDisable = $AdUsersToDisable | sort Name
     [string]$AdUsersToDisableCount = ($AdUsersToDisable).count
@@ -454,15 +454,15 @@ function Disable-InactiveADUsers {
 
 function Remove-InactiveADUsers {
     $AdUsersToDelete = @()
-    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | `
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and `
-            $_.Created -lt (Get-Date).AddDays(-60) -and `
-            $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and `
-            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and `
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
+            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and 
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
-    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | `
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and `
-            $_.Created -lt (Get-Date).AddDays(-60) -and `
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC="}
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
