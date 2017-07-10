@@ -521,3 +521,19 @@ function Sync-GravatarToADUserPhoto {
         }
     }
 }
+
+function Install-InvokeSyncGravatarPhotosToADUsersInAD {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    begin {
+        $ScheduledTaskCredential = Get-PasswordstateCredential -PasswordID 259
+    }
+    process {
+        Install-PowerShellApplicationScheduledTask -PathToScriptForScheduledTask "C:\Scripts\" `
+            -Credential $ScheduledTaskCredential `
+            -FunctionName "Invoke-SyncGravatarPhotosToADUsersInAD" `
+            -RepetitionInterval EverWorkdayOnceAtTheStartOfTheDay `
+            -ComputerName $ComputerName
+    }
+}
