@@ -20,10 +20,10 @@ function Add-ADUserCustomProperties {
     )
 
     $Input | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
-        [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
-    } | `
+        [datetime]::FromFileTime($This."msDS-UserPasswordExpiryTimeComputed")
+    } |
     Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
-        [datetime]::FromFileTime($This.“lastLogonTimestamp”)
+        [datetime]::FromFileTime($This."lastLogonTimestamp")
     }
 }
 
@@ -482,9 +482,40 @@ function Remove-InactiveADUsers {
 
 function Get-ADUserPhoto {
     param (
-        $Identity,
+        [Parameter(Mandatory)]$Identity,
         $Path = $Home
     )
     $ADUser = get-aduser -Identity $Identity -Properties thumbnailphoto
     [System.Io.File]::WriteAllBytes("$Path\$Identity.jpg", $ADUser.Thumbnailphoto)
+}
+
+function Invoke-SyncGravatarPhotosToADUsersInAD {
+    $ADUsers = Get-ADUser -Filter * -Properties ThumbnailPhoto,EmailAddress |
+    where {$_.EmailAddress}
+
+    $ADUsersWithGravatarAvatars = $ADUsers |
+    Add-Member -MemberType ScriptProperty -Name GravatarAvatarURL -Force -PassThru -Value {
+        Get-GravatarAvatarURL -EmailAddress $This.EmailAddress -Size 300 -DefaultType 404
+    } |
+    Add-Member -MemberType ScriptProperty -Name GravatarAvatarExists -Force -PassThru -Value {
+        $Respose = Invoke-WebRequest -Method Head -UseBasicParsing -Uri $This.GravatarAvatarURL
+        if ($Respose) { $true } else { $false }
+    } |
+    Where { $_.GravatarAvatarExists }
+
+    $ADUsersWithGravatarAvatars | Sync-GravatarToADUserPhoto
+}
+
+function Sync-GravatarToADUserPhoto {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SAMAccountName
+    )
+    process {
+        $ADUser = Get-ADUser -Identity $SAMAccountName -Properties ThumbnailPhoto,EmailAddress
+        $URL = Get-GravatarAvatarURL -EmailAddress $ADUser.EmailAddress -Size 300 -DefaultType 404
+        $Response = Invoke-WebRequest -UseBasicParsing -Uri $URL
+        if ($ADUser.thumbnailphoto.Length -ne $Response.RawContentLength) {
+            Set-ADUser -Identity $SAMAccountName -Replace @{thumbnailPhoto=$Response.Content}
+        }
+    }
 }
