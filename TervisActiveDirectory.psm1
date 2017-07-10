@@ -23,7 +23,7 @@ function Add-ADUserCustomProperties {
         [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
     } |
     Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
-        [datetime]::FromFileTime($This.“lastLogonTimestamp”)
+        [datetime]::FromFileTime($This."lastLogonTimestamp")
     }
 }
 
@@ -404,6 +404,8 @@ function Remove-InactiveADComputers {
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-30) -and 
             $_.OperatingSystem -notlike "Windows Server*" -and 
+            $_.OperatingSystem -ne "RHEL" -and 
+            $_.OperatingSystem -ne "Mac OS X" -and 
             $_.OperatingSystem -ne $null} | 
         Sort Name
     [string]$AdComputersToDeleteCount = ($AdComputersToDelete).count
@@ -478,4 +480,44 @@ function Remove-InactiveADUsers {
         Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
     }
     $AdUsersToDelete | Remove-ADUser -Confirm:$false
+}
+
+function Get-ADUserPhoto {
+    param (
+        [Parameter(Mandatory)]$Identity,
+        $Path = $Home
+    )
+    $ADUser = get-aduser -Identity $Identity -Properties thumbnailphoto
+    [System.Io.File]::WriteAllBytes("$Path\$Identity.jpg", $ADUser.Thumbnailphoto)
+}
+
+function Invoke-SyncGravatarPhotosToADUsersInAD {
+    $ADUsers = Get-ADUser -Filter * -Properties ThumbnailPhoto,EmailAddress |
+    where {$_.EmailAddress}
+
+    $ADUsersWithGravatarAvatars = $ADUsers |
+    Add-Member -MemberType ScriptProperty -Name GravatarAvatarURL -Force -PassThru -Value {
+        Get-GravatarAvatarURL -EmailAddress $This.EmailAddress -Size 300 -DefaultType 404
+    } |
+    Add-Member -MemberType ScriptProperty -Name GravatarAvatarExists -Force -PassThru -Value {
+        $Respose = Invoke-WebRequest -Method Head -UseBasicParsing -Uri $This.GravatarAvatarURL
+        if ($Respose) { $true } else { $false }
+    } |
+    Where { $_.GravatarAvatarExists }
+
+    $ADUsersWithGravatarAvatars | Sync-GravatarToADUserPhoto
+}
+
+function Sync-GravatarToADUserPhoto {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SAMAccountName
+    )
+    process {
+        $ADUser = Get-ADUser -Identity $SAMAccountName -Properties ThumbnailPhoto,EmailAddress
+        $URL = Get-GravatarAvatarURL -EmailAddress $ADUser.EmailAddress -Size 300 -DefaultType 404
+        $Response = Invoke-WebRequest -UseBasicParsing -Uri $URL
+        if ($ADUser.thumbnailphoto.Length -ne $Response.RawContentLength) {
+            Set-ADUser -Identity $SAMAccountName -Replace @{thumbnailPhoto=$Response.Content}
+        }
+    }
 }
