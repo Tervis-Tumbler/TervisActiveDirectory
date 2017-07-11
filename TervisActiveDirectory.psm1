@@ -479,7 +479,13 @@ function Remove-InactiveADUsers {
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
     }
-    $AdUsersToDelete | Remove-ADUser -Confirm:$false
+    foreach ($AdUserToDelete in $AdUsersToDelete) {
+        if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
+            Remove-TervisUser -Identity ($AdUserToDelete).DistinguishedName -NoUserReceivesData -Confirm:$false
+        } else {
+            Remove-ADUser ($AdUserToDelete).DistinguishedName -Confirm:$false
+        }
+    }
 }
 
 function Get-ADUserPhoto {
