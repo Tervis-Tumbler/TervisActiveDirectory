@@ -444,7 +444,7 @@ function Disable-InactiveADUsers {
         $Body = "The following $AdUsersToDisableCount users are being disabled. `n" 
         $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADUser in $AdUsersToDisable) {
-            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`t" + ($ADUser).operatingsystem + "`n"
+            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
         }
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
@@ -472,7 +472,7 @@ function Remove-InactiveADUsers {
         $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
         $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADUser in $AdUsersToDelete) {
-            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`t" + ($ADUser).operatingsystem + "`n"
+            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
         }
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
