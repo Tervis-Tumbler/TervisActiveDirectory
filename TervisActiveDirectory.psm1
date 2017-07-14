@@ -498,32 +498,28 @@ function Get-ADUserPhoto {
 }
 
 function Invoke-SyncGravatarPhotosToADUsersInAD {
-    $ADUsers = Get-ADUser -Filter * -Properties ThumbnailPhoto,EmailAddress |
+    $ADUsers = Get-ADUser -Filter {Enabled -eq $true} -Properties ThumbnailPhoto,EmailAddress |
     where {$_.EmailAddress}
-
     $ADUsersWithGravatarAvatars = $ADUsers |
     Add-Member -MemberType ScriptProperty -Name GravatarAvatarURL -Force -PassThru -Value {
-        Get-GravatarAvatarURL -EmailAddress $This.EmailAddress -Size 300 -DefaultType 404
+        Get-GravatarAvatarURL -EmailAddress $This.EmailAddress -Size 175 -DefaultType 404
     } |
     Add-Member -MemberType ScriptProperty -Name GravatarAvatarExists -Force -PassThru -Value {
         $Respose = Invoke-WebRequest -Method Head -UseBasicParsing -Uri $This.GravatarAvatarURL
         if ($Respose) { $true } else { $false }
     } |
     Where { $_.GravatarAvatarExists }
-
     $ADUsersWithGravatarAvatars | Sync-GravatarToADUserPhoto
 }
 
 function Sync-GravatarToADUserPhoto {
     param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SAMAccountName
+        [Parameter(Mandatory,ValueFromPipeline)]$ADUser
     )
     process {
-        $ADUser = Get-ADUser -Identity $SAMAccountName -Properties ThumbnailPhoto,EmailAddress
-        $URL = Get-GravatarAvatarURL -EmailAddress $ADUser.EmailAddress -Size 300 -DefaultType 404
-        $Response = Invoke-WebRequest -UseBasicParsing -Uri $URL
+        $Response = Invoke-WebRequest -UseBasicParsing -Uri $ADUser.GravatarAvatarURL
         if ($ADUser.thumbnailphoto.Length -ne $Response.RawContentLength) {
-            Set-ADUser -Identity $SAMAccountName -Replace @{thumbnailPhoto=$Response.Content}
+            Set-ADUser -Identity $ADuser.SAMAccountName -Replace @{thumbnailPhoto=$Response.Content}
         }
     }
 }
@@ -541,6 +537,31 @@ function Install-InvokeSyncGravatarPhotosToADUsersInAD {
             -FunctionName "Invoke-SyncGravatarPhotosToADUsersInAD" `
             -RepetitionInterval EverWorkdayOnceAtTheStartOfTheDay `
             -ComputerName $ComputerName
+    }
+}
+
+function Invoke-SyncADUserThumbnailPhotoToOffice365 {
+    $ADUsers = Get-ADUser -Filter {
+        ThumbnailPhoto -like "*" -and
+        Enabled -eq $true
+    } -Properties ThumbnailPhoto,EmailAddress
+   
+    Import-TervisMSOnlinePSSession
+    $Mailboxes = Get-O365Mailbox
+    $ADUsersWithMailboxes = $ADUsers |
+    where UserPrincipalName -In $Mailboxes.UserPrincipalName
+    $ADUsersWithMailboxes |
+    Add-Member -MemberType ScriptProperty -Name UserPhotoLength -Force -Value {
+        $Response = Get-O365UserPhoto -Identity $This.UserPrincipalName
+        $Response.PictureData.Length
+    }
+    $ADUsersWithSmallEnoughThumbnailPhotos = $ADUsersWithMailboxes |
+    Where { $_.ThumbnailPhoto.length -lt 21000}
+    $ADUsersWithThumbnailPhotosTooLarge = $ADUsersWithMailboxes |
+    Where { $_.ThumbnailPhoto.length -ge 21000}
+    foreach ($ADUser in $ADUsersWithSmallEnoughThumbnailPhotos) {
+        Write-Verbose "UserPrincipalName:$($ADUser.UserPrincipalName) ThumbnailLength:$($ADUser.ThumbnailPhoto.length)"
+        Set-O365UserPhoto -Identity $ADUser.UserPrincipalName -PictureData $ADUser.ThumbnailPhoto -Confirm:$False
     }
 }
 
