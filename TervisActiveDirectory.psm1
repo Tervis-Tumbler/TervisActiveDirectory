@@ -548,17 +548,22 @@ function Invoke-SyncADUserThumbnailPhotoToOffice365 {
    
     Import-TervisMSOnlinePSSession
     $Mailboxes = Get-O365Mailbox
+    
     $ADUsersWithMailboxes = $ADUsers |
     where UserPrincipalName -In $Mailboxes.UserPrincipalName
+    
     $ADUsersWithMailboxes |
     Add-Member -MemberType ScriptProperty -Name UserPhotoLength -Force -Value {
         $Response = Get-O365UserPhoto -Identity $This.UserPrincipalName
         $Response.PictureData.Length
     }
+
     $ADUsersWithSmallEnoughThumbnailPhotos = $ADUsersWithMailboxes |
     Where { $_.ThumbnailPhoto.length -lt 21000}
+
     $ADUsersWithThumbnailPhotosTooLarge = $ADUsersWithMailboxes |
     Where { $_.ThumbnailPhoto.length -ge 21000}
+
     foreach ($ADUser in $ADUsersWithSmallEnoughThumbnailPhotos) {
         Write-Verbose "UserPrincipalName:$($ADUser.UserPrincipalName) ThumbnailLength:$($ADUser.ThumbnailPhoto.length)"
         Set-O365UserPhoto -Identity $ADUser.UserPrincipalName -PictureData $ADUser.ThumbnailPhoto -Confirm:$False
