@@ -543,3 +543,37 @@ function Install-InvokeSyncGravatarPhotosToADUsersInAD {
             -ComputerName $ComputerName
     }
 }
+
+function Install-DisableInactiveADComputersScheduledTask {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    begin {
+        $ScheduledTaskCredential = New-Object System.Management.Automation.PSCredential (Get-PasswordstateCredential -PasswordID 259)
+        $Execute = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        $Argument = '-Command Disable-InactiveADComputers -NoProfile'
+    }
+    process {
+        $CimSession = New-CimSession -ComputerName $ComputerName
+        If (-NOT (Get-ScheduledTask -TaskName Disable-InactiveADComputers -CimSession $CimSession -ErrorAction SilentlyContinue)) {
+            Install-TervisScheduledTask -Credential $ScheduledTaskCredential -TaskName Disable-InactiveADComputers -Execute $Execute -Argument $Argument -RepetitionIntervalName EveryDayAt3am -ComputerName $ComputerName
+        }
+    }
+}
+
+function Install-DisableInactiveADUsersScheduledTask {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    begin {
+        $ScheduledTaskCredential = New-Object System.Management.Automation.PSCredential (Get-PasswordstateCredential -PasswordID 259)
+        $Execute = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        $Argument = '-Command Disable-InactiveADUsers -NoProfile'
+    }
+    process {
+        $CimSession = New-CimSession -ComputerName $ComputerName
+        If (-NOT (Get-ScheduledTask -TaskName Disable-InactiveADUsers -CimSession $CimSession -ErrorAction SilentlyContinue)) {
+            Install-TervisScheduledTask -Credential $ScheduledTaskCredential -TaskName Disable-InactiveADUsers -Execute $Execute -Argument $Argument -RepetitionIntervalName EveryDayAt3am -ComputerName $ComputerName
+        }
+    }
+}
