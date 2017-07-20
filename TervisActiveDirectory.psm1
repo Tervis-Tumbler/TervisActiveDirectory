@@ -603,3 +603,10 @@ function Install-DisableInactiveADUsersScheduledTask {
         }
     }
 }
+
+function Get-ADObjectParentContainer {
+    param(
+        [Parameter(Mandatory,ValueFromPipeline)]$ObjectPath
+    )
+    ($ObjectPath.split(",") | select -skip 1 ) -join ","
+}
