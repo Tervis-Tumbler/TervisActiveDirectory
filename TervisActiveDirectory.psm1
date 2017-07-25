@@ -457,14 +457,15 @@ function Disable-InactiveADUsers {
 }
 
 function Remove-InactiveADUsers {
+    $MESUsers = Get-MESOnlyUsers
     $AdUsersToDelete = @()
     $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
-            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and 
-            $_.DistinguishedName -notmatch "OU=Users,OU=Production Floor,OU=Operations" -and 
-            $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
+            $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and  
+            $_.DistinguishedName -notmatch "OU=Accounts - Service,DC=" -and
+            $_.DistinguishedName -notin $MESUsers.DistinguishedName}
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
