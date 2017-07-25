@@ -400,16 +400,18 @@ function Disable-InactiveADComputers {
 }
 
 function Remove-InactiveADComputers {
+    $AdComputersToDelete = @()
     $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-30) -and 
+            $_.Name -notlike "TP9*" -and 
             $_.OperatingSystem -notlike "Windows Server*" -and 
             $_.OperatingSystem -ne "RHEL" -and 
             $_.OperatingSystem -ne "Mac OS X" -and 
             $_.OperatingSystem -ne $null} | 
         Sort Name
     [string]$AdComputersToDeleteCount = ($AdComputersToDelete).count
-    if ($AdComputersToDisableCount -ge "1") {
+    if ($AdComputersToDeleteCount -ge "1") {
         $Body = "The following $AdComputersToDisableCount computers are being deleted. `n" 
         $Body += "Computer Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADComputer in $AdComputersToDelete) {
@@ -420,7 +422,7 @@ function Remove-InactiveADComputers {
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
     }
-    $AdComputersToDelete | Remove-ADComputer -Recursive -Confirm:$false
+    $AdComputersToDelete | Remove-ADComputer -Confirm:$false
     $AdComputersToDelete | Remove-TervisDNSRecord
 }
 
@@ -456,11 +458,12 @@ function Disable-InactiveADUsers {
 
 function Remove-InactiveADUsers {
     $AdUsersToDelete = @()
-    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | 
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and 
+            $_.DistinguishedName -notmatch "OU=Users,OU=Production Floor,OU=Operations" -and 
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
@@ -480,8 +483,11 @@ function Remove-InactiveADUsers {
         Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
     }
     foreach ($AdUserToDelete in $AdUsersToDelete) {
+        if ($AdUserToDelete.ProtectedFromAccidentalDeletion) {
+            Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
+        }
         if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
-            Remove-TervisUser -Identity ($AdUserToDelete).DistinguishedName -NoUserReceivesData -Confirm:$false
+            Remove-TervisUser -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
         } else {
             Remove-ADUser ($AdUserToDelete).DistinguishedName -Confirm:$false
         }
