@@ -75,7 +75,7 @@ function Remove-TervisADUserHomeDirectory {
         [parameter(Mandatory)]$Identity       
     )
     $ADUser = Get-ADUser -Identity $Identity -Properties HomeDirectory
-    Remove-Item -Path $ADUser.HomeDirectory -Confirm -Recurse -Force
+    Remove-Item -Path $ADUser.HomeDirectory -Confirm:$false -Recurse -Force
     $ADUser | Set-ADUser -Clear HomeDirectory
 }
 
