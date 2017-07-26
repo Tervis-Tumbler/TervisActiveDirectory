@@ -395,8 +395,8 @@ function Disable-InactiveADComputers {
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Disabled' -Body $Body -SmtpServer $SMTPServer
+        $AdComputersToDisable | Disable-ADAccount -Confirm:$false
     }
-    $AdComputersToDisable | Disable-ADAccount -Confirm:$false
 }
 
 function Remove-InactiveADComputers {
@@ -421,9 +421,9 @@ function Remove-InactiveADComputers {
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
+        $AdComputersToDelete | Remove-ADComputer -Confirm:$false
+        $AdComputersToDelete | Remove-TervisDNSRecord
     }
-    $AdComputersToDelete | Remove-ADComputer -Confirm:$false
-    $AdComputersToDelete | Remove-TervisDNSRecord
 }
 
 function Disable-InactiveADUsers {
@@ -452,27 +452,32 @@ function Disable-InactiveADUsers {
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Disabled' -Body $Body -SmtpServer $SMTPServer
+        $AdUsersToDisable | Disable-ADAccount -Confirm:$false
     }
-    $AdUsersToDisable | Disable-ADAccount -Confirm:$false
 }
 
 function Remove-InactiveADUsers {
     $MESUsers = Get-MESOnlyUsers
     $AdUsersToDelete = @()
-    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion | 
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
-            $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and  
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC=" -and
-            $_.DistinguishedName -notin $MESUsers.DistinguishedName}
-    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled | 
+            $_.DistinguishedName -notin $MESUsers.DistinguishedName -and
+            $_.Name -ne 'krbtgt' -and
+            $_.Name -ne 'Guest' -and
+            $_.Name -ne 'DefaultAccount'}
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
-            $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC="}
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
+        $AdUsersToDelete | Export-Clixml -Path ($env:TEMP + '\ADUsersToDelete.xml')
+        $MailAttachment = ($env:TEMP + '\ADUsersToDelete.xml')
         $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
         $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADUser in $AdUsersToDelete) {
@@ -481,16 +486,25 @@ function Remove-InactiveADUsers {
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
-        Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
-    }
-    foreach ($AdUserToDelete in $AdUsersToDelete) {
-        if ($AdUserToDelete.ProtectedFromAccidentalDeletion) {
-            Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
-        }
-        if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
-            Remove-TervisUser -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
-        } else {
-            Remove-ADUser ($AdUserToDelete).DistinguishedName -Confirm:$false
+        Send-MailMessage -To $To -From $From -Subject 'Inactive User Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer -Attachments $MailAttachment
+        Remove-Item -Path $MailAttachment -Force -Confirm:$false
+        foreach ($AdUserToDelete in $AdUsersToDelete) {
+            Set-Location AD:
+            $AdObjectACL = Get-Acl ($AdUserToDelete).DistinguishedName
+            foreach ($AccessRule in $AdObjectACL.Access) {
+                if ($AccessRule.IdentityReference.Value -eq 'Everyone' -and $AccessRule.AccessControlType -eq 'Deny' -and $AccessRule.ActiveDirectoryRights -match 'Delete') {
+                    $AdObjectACL.RemoveAccessRule($AccessRule) | Out-Null
+                }
+            }
+            Set-Location ($ENV:SystemRoot + '\System32')
+            if ($AdUserToDelete.ProtectedFromAccidentalDeletion) {
+                Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
+            }
+            if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
+                Remove-TervisUser -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
+            } else {
+                Remove-ADUser ($AdUserToDelete).DistinguishedName -Confirm:$false
+            }
         }
     }
 }
