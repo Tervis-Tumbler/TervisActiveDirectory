@@ -684,7 +684,7 @@ function Install-MoveMESUsersToCorrectOUScheduledTask {
     process {
         $CimSession = New-CimSession -ComputerName $ComputerName
         If (-NOT (Get-ScheduledTask -TaskName Move-MESUsersToCorrectOU -CimSession $CimSession -ErrorAction SilentlyContinue)) {
-            Install-TervisScheduledTask -Credential $ScheduledTaskCredential -TaskName Move-MESUsersToCorrectOU -Execute $Execute -Argument $Argument -RepetitionIntervalName EveryDayAt3am -ComputerName $ComputerName
+            Install-TervisScheduledTask -Credential $ScheduledTaskCredential -TaskName Move-MESUsersToCorrectOU -Execute $Execute -Argument $Argument -RepetitionIntervalName EveryDayAt2am -ComputerName $ComputerName
         }
     }
 }
