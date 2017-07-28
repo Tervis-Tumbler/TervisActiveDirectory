@@ -401,7 +401,7 @@ function Disable-InactiveADComputers {
 
 function Remove-InactiveADComputers {
     $AdComputersToDelete = @()
-    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem | 
+    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem,ProtectedFromAccidentalDeletion | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-30) -and 
             $_.Name -notlike "TP9*" -and 
@@ -421,6 +421,19 @@ function Remove-InactiveADComputers {
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
         $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
         Send-MailMessage -To $To -From $From -Subject 'Inactive Computer Accounts to be Deleted' -Body $Body -SmtpServer $SMTPServer
+        foreach ($AdComputerToDelete in $AdComputersToDelete) {
+            Set-Location AD:
+            $AdObjectACL = Get-Acl ($AdComputerToDelete).DistinguishedName
+            foreach ($AccessRule in $AdObjectACL.Access) {
+                if ($AccessRule.IdentityReference.Value -eq 'Everyone' -and $AccessRule.AccessControlType -eq 'Deny' -and $AccessRule.ActiveDirectoryRights -match 'Delete') {
+                    $AdObjectACL.RemoveAccessRule($AccessRule) | Out-Null
+                }
+            }
+            Set-Location ($ENV:SystemRoot + '\System32')
+            if ($AdComputerToDelete.ProtectedFromAccidentalDeletion) {
+                Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
+            }
+        }
         $AdComputersToDelete | Remove-ADComputer -Confirm:$false
         $AdComputersToDelete | Remove-TervisDNSRecord
     }
