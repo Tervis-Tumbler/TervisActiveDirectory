@@ -516,7 +516,7 @@ function Remove-InactiveADUsers {
             if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
                 Remove-TervisUser -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
             } else {
-                Remove-ADUser ($AdUserToDelete).DistinguishedName -Confirm:$false
+                Remove-ADObject ($AdUserToDelete).DistinguishedName -Confirm:$false -Recursive
             }
         }
     }
