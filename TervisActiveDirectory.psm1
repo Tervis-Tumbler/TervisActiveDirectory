@@ -678,3 +678,27 @@ function Get-ADObjectParentContainer {
     )
     ($ObjectPath.split(",") | select -skip 1 ) -join ","
 }
+
+function Move-MESUsersToCorrectOU {
+    $MESUserNames = Get-MESUsersWhoHaveLoggedOnIn3Months -DataSource "MESSQL.production.$env:USERDNSDOMAIN" -DataBase MES
+    $TargetOU = Get-ADOrganizationalUnit -Filter * | Where DistinguishedName -Match "OU=Users,OU=Production Floor,OU=Operations," |
+        Select -ExpandProperty DistinguishedName
+    foreach ($MESUser in $MESUserNames) {
+        $ErrorActionPreference = "SilentlyContinue"
+        $ADUser = Get-TervisADUser $MESUser -Properties LastLogonTimestamp,enabled,ProtectedFromAccidentalDeletion
+        $ErrorActionPreference = "Continue"
+        if ($ADUser -and (-NOT ($ADUser.DistinguishedName -Match "OU=Users,OU=Production Floor,OU=Operations,"))) {
+            if (-NOT(($ADUser).TervisLastLogon -gt (Get-Date).AddDays(-30))) {
+                if (-NOT (Test-TervisUserHasOffice365SharedMailbox -Identity ($ADUser).SamAccountName)) {
+                    if ($ADUser.ProtectedFromAccidentalDeletion) {
+                        Set-ADObject -Identity $ADUser.DistinguishedName -ProtectedFromAccidentalDeletion $false
+                    }
+                    $ADUser | Move-ADObject -TargetPath $TargetOU -Confirm:$false
+                    $UserPrincipalName = $ADUser | Select -ExpandProperty UserPrincipalName
+                    $ADUser = Get-ADObject -Filter {UserPrincipalName -eq $UserPrincipalName} 
+                    $ADUser | Set-ADObject -ProtectedFromAccidentalDeletion $true
+                }
+            }
+        }
+    }
+}
