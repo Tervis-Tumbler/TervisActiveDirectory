@@ -403,7 +403,7 @@ function Remove-InactiveADComputers {
     $AdComputersToDelete = @()
     $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem,ProtectedFromAccidentalDeletion | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
-            $_.Created -lt (Get-Date).AddDays(-30) -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.Name -notlike "TP9*" -and 
             $_.OperatingSystem -notlike "Windows Server*" -and 
             $_.OperatingSystem -ne "RHEL" -and 
@@ -412,7 +412,7 @@ function Remove-InactiveADComputers {
         Sort Name
     [string]$AdComputersToDeleteCount = ($AdComputersToDelete).count
     if ($AdComputersToDeleteCount -ge "1") {
-        $Body = "The following $AdComputersToDisableCount computers are being deleted. `n" 
+        $Body = "The following $AdComputersToDeleteCount computers are being deleted. `n" 
         $Body += "Computer Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADComputer in $AdComputersToDelete) {
             $Body += ($ADComputer).name + "`t" + ($ADComputer).TervisLastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
@@ -434,7 +434,7 @@ function Remove-InactiveADComputers {
                 Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
             }
         }
-        $AdComputersToDelete | Remove-ADComputer -Confirm:$false
+        $AdComputersToDelete | Remove-ADObject -Confirm:$false -Recursive
         $AdComputersToDelete | Remove-TervisDNSRecord
     }
 }
