@@ -454,7 +454,8 @@ function Disable-InactiveADUsers {
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
-            $_.DistinguishedName -match "OU=Accounts - Service,DC="}
+            $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
+            $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDisable = $AdUsersToDisable | sort Name
     [string]$AdUsersToDisableCount = ($AdUsersToDisable).count
     if ($AdUsersToDisableCount -ge "1") {
@@ -487,7 +488,8 @@ function Remove-InactiveADUsers {
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
-            $_.DistinguishedName -match "OU=Accounts - Service,DC="}
+            $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
+            $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
