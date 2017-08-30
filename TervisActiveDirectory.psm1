@@ -496,7 +496,7 @@ function Remove-InactiveADUsers {
         $AdUsersToDelete | Export-Clixml -Path ($env:TEMP + '\ADUsersToDelete.xml')
         $MailAttachment = ($env:TEMP + '\ADUsersToDelete.xml')
         $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
-        $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        $Body += "User Name `t Tervis Last Logon `t Date Created `n"
         foreach ($ADUser in $AdUsersToDelete) {
             $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
         }
@@ -523,6 +523,36 @@ function Remove-InactiveADUsers {
                 Remove-ADObject ($AdUserToDelete).DistinguishedName -Confirm:$false -Recursive
             }
         }
+    }
+}
+
+function Send-TervisInactivityNotification {
+    $AdUsersForNotification = @()
+    $AdUsersForNotification += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-351) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-351) -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC=" -and
+            $_.Enabled -eq $true}
+    $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
+    $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
+    foreach ($AdUserForNotification in $AdUsersForNotification) {
+        if (($AdUserForNotification).Manager) {
+            $ManagerEmail = Get-ADUser ($AdUserForNotification).Manager -Properties EmailAddress -ErrorAction SilentlyContinue | Select -ExpandProperty EmailAddress
+        }
+        If ($ManagerEmail) {
+            $To = $ManagerEmail
+        } else {
+            $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
+        }
+        if (($AdUserForNotification).PasswordLastSet -gt ($AdUserForNotification).TervisLastLogon) {
+            $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).PasswordLastSet
+        } else {
+            $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).TervisLastLogon | Select -ExpandProperty Days
+        }
+        $Body = "The following user in the Inactive Exceptions OU will be disabled in $DaysUntilDisabled days if the password is not reset. `n" 
+        $Body += "User Name `t Tervis Last Logon `t Date Created 't Password Last Set `n"
+        $Body += ($AdUserForNotification).name + "`t" + ($AdUserForNotification).TervisLastLogon + "`t" + ($AdUserForNotification).created + "`t" +  ($AdUserForNotification).PasswordLastSet + "`n"
+        Send-MailMessage -To $To -From $From -Subject 'Service Account with Expection to be Disabled' -Body $Body -SmtpServer $SMTPServer
     }
 }
 
