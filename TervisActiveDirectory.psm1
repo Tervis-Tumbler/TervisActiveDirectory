@@ -456,11 +456,16 @@ function Disable-InactiveADUsers {
             $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
+    $AdUsersToDisable += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-365) -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC=" -and
+            $_.Enabled -eq $true}
     $AdUsersToDisable = $AdUsersToDisable | sort Name
     [string]$AdUsersToDisableCount = ($AdUsersToDisable).count
     if ($AdUsersToDisableCount -ge "1") {
         $Body = "The following $AdUsersToDisableCount users are being disabled. `n" 
-        $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        $Body += "User Name `t Tervis Last Logon `t Date Created `n"
         foreach ($ADUser in $AdUsersToDisable) {
             $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
         }
@@ -490,6 +495,11 @@ function Remove-InactiveADUsers {
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC=" -and
+            $_.Enabled -eq $true}
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
