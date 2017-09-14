@@ -781,3 +781,11 @@ function Move-MESUsersToCorrectOU {
         }
     }
 }
+
+function Invoke-TervisDomainControllerProvision {
+    param (
+        $EnvironmentName
+    )
+    Invoke-ApplicationProvision -ApplicationName DomainController -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName DomainController -EnvironmentName $EnvironmentName
+} 
