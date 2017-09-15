@@ -263,7 +263,7 @@ function Invoke-ADAzureSync {
     )
 
     $DC = Get-ADDomainController
-    Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /ed}
+    Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /Aed}
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
 }
 
