@@ -375,10 +375,10 @@ function Remove-TervisADComputerObject {
 
 function Disable-InactiveADComputers {
     $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem,PasswordLastSet | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and 
-            $_.PasswordLastSet -lt (Get-Date).AddDays(-30) -and 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-60) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-60) -and 
             $_.Enabled -eq $true -and 
-            $_.Created -lt (Get-Date).AddDays(-30) -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.Name -notlike "TP9*" -and 
             $_.OperatingSystem -notlike "Windows Server*" -and 
             $_.OperatingSystem -ne "RHEL" -and 
