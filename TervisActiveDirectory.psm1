@@ -480,7 +480,7 @@ function Disable-InactiveADUsers {
 function Remove-InactiveADUsers {
     $MESUsers = Get-MESOnlyUsers
     $AdUsersToDelete = @()
-    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
@@ -490,15 +490,15 @@ function Remove-InactiveADUsers {
             $_.Name -ne 'krbtgt' -and
             $_.Name -ne 'Guest' -and
             $_.Name -ne 'DefaultAccount'}
-    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
-    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
-            $_.enabled -eq $false -and
+            $_.Enabled -eq $false -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
