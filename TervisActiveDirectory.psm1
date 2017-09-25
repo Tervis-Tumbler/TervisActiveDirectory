@@ -495,12 +495,11 @@ function Remove-InactiveADUsers {
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
-    <#
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
+            $_.enabled -eq $false -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
-            #>
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
