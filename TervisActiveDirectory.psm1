@@ -788,3 +788,7 @@ function Invoke-TervisDomainControllerProvision {
     Invoke-ApplicationProvision -ApplicationName DomainController -EnvironmentName $EnvironmentName
     $Nodes = Get-TervisApplicationNode -ApplicationName DomainController -EnvironmentName $EnvironmentName
 } 
+
+function Get-AzureADConnectComputerName {
+    Get-ADComputer -Filter {description -eq 'Azure AD Connect'} | Select -ExpandProperty Name
+}
