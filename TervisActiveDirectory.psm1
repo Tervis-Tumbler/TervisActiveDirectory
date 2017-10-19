@@ -440,17 +440,19 @@ function Remove-InactiveADComputers {
 
 function Disable-InactiveADUsers {
     $AdUsersToDisable = @()
-    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | 
+    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and 
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and 
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and 
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
-    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | 
+    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDisable += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
@@ -477,9 +479,10 @@ function Disable-InactiveADUsers {
 function Remove-InactiveADUsers {
     $MESUsers = Get-MESOnlyUsers
     $AdUsersToDelete = @()
-    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf | 
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and  
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC=" -and
@@ -487,9 +490,10 @@ function Remove-InactiveADUsers {
             $_.Name -ne 'krbtgt' -and
             $_.Name -ne 'Guest' -and
             $_.Name -ne 'DefaultAccount'}
-    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf | 
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
