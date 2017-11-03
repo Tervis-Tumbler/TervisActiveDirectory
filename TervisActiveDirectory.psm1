@@ -798,3 +798,24 @@ function Invoke-TervisDomainControllerProvision {
 function Get-AzureADConnectComputerName {
     Get-ADComputer -Filter {description -eq 'Azure AD Connect'} | Select -ExpandProperty Name
 }
+
+
+function Get-AvailableSAMAccountName {
+    param(
+        [parameter(mandatory)]$GivenName,
+        [parameter(mandatory)]$Surname
+    )
+
+    [string]$FirstInitialSurname = $GivenName[0] + $Surname
+    [string]$GivenNameLastInitial = $GivenName + $Surname[0]
+
+    $UserName= if (-not (Get-ADUser -filter {sAMAccountName -eq $FirstInitialSurname})) {
+        $FirstInitialSurname
+    } elseif (-not (Get-ADUser -filter {sAMAccountName -eq $GivenNameLastInitial})) {
+        $GivenNameLastInitial
+    } else {
+        Throw "Neither $FirstInitialSurname or $GivenNameLastInitial are avaialble SAMAccountNames in Active Directory"
+    }
+
+    $UserName.ToLower()
+}
