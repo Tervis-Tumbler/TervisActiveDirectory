@@ -501,9 +501,6 @@ function Remove-InactiveADUsers {
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
             #>
-            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
-            $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
-            $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
