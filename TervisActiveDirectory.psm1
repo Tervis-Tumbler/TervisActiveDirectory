@@ -263,7 +263,7 @@ function Invoke-ADAzureSync {
     )
 
     $DC = Get-ADDomainController
-    Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /ed}
+    Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /Aed}
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
 }
 
@@ -374,10 +374,11 @@ function Remove-TervisADComputerObject {
 }
 
 function Disable-InactiveADComputers {
-    $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and 
+    $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem,PasswordLastSet | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-60) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-60) -and 
             $_.Enabled -eq $true -and 
-            $_.Created -lt (Get-Date).AddDays(-30) -and 
+            $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.Name -notlike "TP9*" -and 
             $_.OperatingSystem -notlike "Windows Server*" -and 
             $_.OperatingSystem -ne "RHEL" -and 
@@ -401,8 +402,9 @@ function Disable-InactiveADComputers {
 
 function Remove-InactiveADComputers {
     $AdComputersToDelete = @()
-    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem,ProtectedFromAccidentalDeletion | 
+    $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem,ProtectedFromAccidentalDeletion,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.Name -notlike "TP9*" -and 
             $_.OperatingSystem -notlike "Windows Server*" -and 
@@ -452,12 +454,18 @@ function Disable-InactiveADUsers {
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
-            $_.DistinguishedName -match "OU=Accounts - Service,DC="}
+            $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
+            $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
+    $AdUsersToDisable += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-365) -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC=" -and
+            $_.Enabled -eq $true}
     $AdUsersToDisable = $AdUsersToDisable | sort Name
     [string]$AdUsersToDisableCount = ($AdUsersToDisable).count
     if ($AdUsersToDisableCount -ge "1") {
         $Body = "The following $AdUsersToDisableCount users are being disabled. `n" 
-        $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        $Body += "User Name `t Tervis Last Logon `t Date Created `n"
         foreach ($ADUser in $AdUsersToDisable) {
             $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
         }
@@ -485,14 +493,21 @@ function Remove-InactiveADUsers {
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
-            $_.DistinguishedName -match "OU=Accounts - Service,DC="}
+            $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
+            $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
+    <#
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
+            #>
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
         $AdUsersToDelete | Export-Clixml -Path ($env:TEMP + '\ADUsersToDelete.xml')
         $MailAttachment = ($env:TEMP + '\ADUsersToDelete.xml')
         $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
-        $Body += "User Name `t Tervis Last Logon `t Date Created `t Operating System `n"
+        $Body += "User Name `t Tervis Last Logon `t Date Created `n"
         foreach ($ADUser in $AdUsersToDelete) {
             $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
         }
@@ -519,6 +534,36 @@ function Remove-InactiveADUsers {
                 Remove-ADObject ($AdUserToDelete).DistinguishedName -Confirm:$false -Recursive
             }
         }
+    }
+}
+
+function Send-TervisInactivityNotification {
+    $AdUsersForNotification = @()
+    $AdUsersForNotification += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-351) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-351) -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC=" -and
+            $_.Enabled -eq $true}
+    $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
+    $SMTPServer = Get-ADObject -Filter {servicePrincipalName -like "*exchangemdb*"} -Properties dNSHostName | select -ExpandProperty dNSHostName
+    foreach ($AdUserForNotification in $AdUsersForNotification) {
+        if (($AdUserForNotification).Manager) {
+            $ManagerEmail = Get-ADUser ($AdUserForNotification).Manager -Properties EmailAddress -ErrorAction SilentlyContinue | Select -ExpandProperty EmailAddress
+        }
+        If ($ManagerEmail) {
+            $To = $ManagerEmail
+        } else {
+            $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
+        }
+        if (($AdUserForNotification).PasswordLastSet -gt ($AdUserForNotification).TervisLastLogon) {
+            $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).PasswordLastSet
+        } else {
+            $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).TervisLastLogon | Select -ExpandProperty Days
+        }
+        $Body = "The following user in the Inactive Exceptions OU will be disabled in $DaysUntilDisabled days if the password is not reset. `n" 
+        $Body += "User Name `t Tervis Last Logon `t Date Created 't Password Last Set `n"
+        $Body += ($AdUserForNotification).name + "`t" + ($AdUserForNotification).TervisLastLogon + "`t" + ($AdUserForNotification).created + "`t" +  ($AdUserForNotification).PasswordLastSet + "`n"
+        Send-MailMessage -To $To -From $From -Subject 'Service Account with Expection to be Disabled' -Body $Body -SmtpServer $SMTPServer
     }
 }
 
@@ -689,6 +734,23 @@ function Install-MoveMESUsersToCorrectOUScheduledTask {
     }
 }
 
+function Install-SendTervisInactivityNotification {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    begin {
+        $ScheduledTaskCredential = New-Object System.Management.Automation.PSCredential (Get-PasswordstateCredential -PasswordID 259)
+        $Execute = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        $Argument = '-Command Send-TervisInactivityNotification -NoProfile'
+    }
+    process {
+        $CimSession = New-CimSession -ComputerName $ComputerName
+        If (-NOT (Get-ScheduledTask -TaskName Send-TervisInactivityNotification -CimSession $CimSession -ErrorAction SilentlyContinue)) {
+            Install-TervisScheduledTask -Credential $ScheduledTaskCredential -TaskName Send-TervisInactivityNotification -Execute $Execute -Argument $Argument -RepetitionIntervalName EveryDayAt3am -ComputerName $ComputerName
+        }
+    }
+}
+
 function Get-ADObjectParentContainer {
     param(
         [Parameter(Mandatory,ValueFromPipeline)]$ObjectPath
@@ -719,3 +781,11 @@ function Move-MESUsersToCorrectOU {
         }
     }
 }
+
+function Invoke-TervisDomainControllerProvision {
+    param (
+        $EnvironmentName
+    )
+    Invoke-ApplicationProvision -ApplicationName DomainController -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName DomainController -EnvironmentName $EnvironmentName
+} 
