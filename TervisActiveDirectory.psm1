@@ -258,10 +258,7 @@ function Invoke-SwitchComputersCurrentDomainController {
 }
 
 function Invoke-ADAzureSync {
-    param (
-        [Parameter(Mandatory)]$Server
-    )
-
+    $Server = Get-AzureADConnectComputerName
     $DC = Get-ADDomainController
     Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /Aed}
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
@@ -443,17 +440,19 @@ function Remove-InactiveADComputers {
 
 function Disable-InactiveADUsers {
     $AdUsersToDisable = @()
-    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | 
+    $AdUsersToDisable = Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-30) -and 
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" -and 
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and 
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC="}
-    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled | 
+    $AdUsersToDisable += Get-TervisADUser -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-180) -and
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDisable += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
@@ -480,9 +479,10 @@ function Disable-InactiveADUsers {
 function Remove-InactiveADUsers {
     $MESUsers = Get-MESOnlyUsers
     $AdUsersToDelete = @()
-    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
+    $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
             $_.DistinguishedName -notmatch "OU=Exchange,DC=" -and  
             $_.DistinguishedName -notmatch "OU=Accounts - Service,DC=" -and
@@ -490,7 +490,7 @@ function Remove-InactiveADUsers {
             $_.Name -ne 'krbtgt' -and
             $_.Name -ne 'Guest' -and
             $_.Name -ne 'DefaultAccount'}
-    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,ProtectedFromAccidentalDeletion,MemberOf | 
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf,PasswordLastSet | 
         where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
@@ -501,6 +501,14 @@ function Remove-InactiveADUsers {
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
             #>
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
+            $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
+            $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
+    $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
+        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
+            $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
+            $_.Enabled -eq $false -and
+            $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     $AdUsersToDelete = $AdUsersToDelete | sort Name
     [string]$AdUsersToDeleteCount = ($AdUsersToDelete).count
     if ($AdUsersToDeleteCount -ge "1") {
@@ -789,3 +797,7 @@ function Invoke-TervisDomainControllerProvision {
     Invoke-ApplicationProvision -ApplicationName DomainController -EnvironmentName $EnvironmentName
     $Nodes = Get-TervisApplicationNode -ApplicationName DomainController -EnvironmentName $EnvironmentName
 } 
+
+function Get-AzureADConnectComputerName {
+    Get-ADComputer -Filter {description -eq 'Azure AD Connect'} | Select -ExpandProperty Name
+}
