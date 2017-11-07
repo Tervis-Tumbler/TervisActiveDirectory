@@ -256,9 +256,10 @@ function Invoke-SwitchComputersCurrentDomainController {
 }
 
 function Invoke-ADAzureSync {
-    $Server = Get-AzureADConnectComputerName
     $DC = Get-ADDomainController
     Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /Aed}
+    
+    $Server = Get-AzureADConnectComputerName
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
 }
 
