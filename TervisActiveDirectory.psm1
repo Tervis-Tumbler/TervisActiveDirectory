@@ -1,7 +1,5 @@
 ﻿#Requires -Modules TervisDNS, ActiveDirectory, TervisMailMessage
 
-#$ADGroups = get-adgroup -Filter *
-
 function Get-TervisADUser {
     param (
         $Identity,
@@ -262,6 +260,16 @@ function Invoke-ADAzureSync {
     $DC = Get-ADDomainController
     Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /Aed}
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
+}
+
+
+Function Sync-ADDomainControllers {
+    [CmdletBinding()]
+    param ()
+    Write-Verbose "Forcing a sync between domain controllers"
+    $DC = Get-ADDomainController | Select -ExpandProperty HostName
+    Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}
+    Start-Sleep 30 
 }
 
 function Get-TervisADComputer {
