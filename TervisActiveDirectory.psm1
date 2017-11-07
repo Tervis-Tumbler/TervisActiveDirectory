@@ -263,9 +263,6 @@ function Invoke-ADAzureSync {
 }
 
 Function Sync-ADDomainControllers {
-    [CmdletBinding()]
-    param ()
-    Write-Verbose "Forcing a sync between domain controllers"
     $DC = Get-ADDomainController | Select -ExpandProperty HostName
     Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}
     Start-Sleep 30 
@@ -837,4 +834,15 @@ function Get-AvailableSAMAccountName {
     }
 
     $UserName.ToLower()
+}
+
+function Copy-ADUserGroupMembership {
+    param (
+        $Identity,
+        $DestinationIdentity
+    )
+    $Groups = Get-ADUser $Identity -Properties MemberOf | Select -ExpandProperty MemberOf
+    Foreach ($Group in $Groups) {
+        Add-ADGroupMember -Identity $group -Members $DestinationIdentity
+    }
 }
