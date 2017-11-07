@@ -262,7 +262,6 @@ function Invoke-ADAzureSync {
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
 }
 
-
 Function Sync-ADDomainControllers {
     [CmdletBinding()]
     param ()
@@ -270,6 +269,18 @@ Function Sync-ADDomainControllers {
     $DC = Get-ADDomainController | Select -ExpandProperty HostName
     Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}
     Start-Sleep 30 
+}
+
+function Sync-TervisADObjectToAllDomainControllers {
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)]$ADObject
+    )
+    process {
+        $DomainControllers = Get-ADDomainController -Filter * | select -ExpandProperty HostName
+        foreach ($DomainController in $DomainControllers) {
+            $ADObject | Sync-ADObject -Destination $DomainController
+        }
+    }
 }
 
 function Get-TervisADComputer {
