@@ -847,3 +847,11 @@ function Copy-ADUserGroupMembership {
         Add-ADGroupMember -Identity $group -Members $DestinationIdentity
     }
 }
+
+function Get-ADUserOU {
+    param (
+        [Parameter(Mandatory)]$SAMAccountName
+    )
+    $ADUser = Get-ADUser $SAMAccountName
+    ($Aduser.DistinguishedName -split "," | select -Skip 1 ) -join ","
+}
