@@ -256,17 +256,21 @@ function Invoke-SwitchComputersCurrentDomainController {
 }
 
 function Invoke-ADAzureSync {
-    $DC = Get-ADDomainController
-    Invoke-Command -computername $DC.HostName -ScriptBlock {repadmin /syncall /Aed}
-    
     $Server = Get-AzureADConnectComputerName
     Invoke-Command -ComputerName $Server -ScriptBlock {Start-ADSyncSyncCycle -PolicyType Delta}
 }
 
 Function Sync-ADDomainControllers {
+    param (
+        [Switch]$Blocking
+    )
     $DC = Get-ADDomainController | Select -ExpandProperty HostName
-    Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}
-    Start-Sleep 30 
+    if ($Blocking) {
+        Invoke-Command -computername $DC -ScriptBlock {repadmin /syncall /Aed}
+    } else {
+        Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}
+        Start-Sleep 30
+    }
 }
 
 function Sync-TervisADObjectToAllDomainControllers {
