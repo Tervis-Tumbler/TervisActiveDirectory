@@ -9,19 +9,29 @@ function Get-TervisADUser {
     )
     
     $AdditionalNeededProperties = "msDS-UserPasswordExpiryTimeComputed,lastLogonTimestamp"
-    Get-ADUser @PSBoundParameters | Add-ADUserCustomProperties
+    Get-ADUser @PSBoundParameters | Add-ADUserCustomProperties -PassThru
 }
 
 function Add-ADUserCustomProperties {
     param (
-        [Parameter(ValueFromPipeline)]$Input
+        [Parameter(ValueFromPipeline)]$ADUser,
+        [Switch]$PassThru
     )
-
-    $Input | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
-        [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
-    } |
-    Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
-        [datetime]::FromFileTime($This."lastLogonTimestamp")
+    process {
+        $ADUser | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
+            [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
+        } |
+        Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
+            [datetime]::FromFileTime($This."lastLogonTimestamp")
+        } |
+        Add-Member -MemberType ScriptProperty -Name O365Mailbox -PassThru -Force -Value {
+            Import-TervisMSOnlinePSSession
+            Get-O365Mailbox -Identity $This.UserPrincipalName
+        } |
+        Add-Member -MemberType ScriptProperty -Name ExchangeMailbox -PassThru:$PassThru -Force -Value {
+            Import-TervisExchangePSSession
+            Get-ExchangeMailbox -Identity $This.UserPrincipalName
+        }
     }
 }
 
