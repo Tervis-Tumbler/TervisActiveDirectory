@@ -272,15 +272,16 @@ function Invoke-ADAzureSync {
 
 Function Sync-ADDomainControllers {
     param (
+        $SleepSeconds = 30,
         [Switch]$Blocking
     )
     $DC = Get-ADDomainController | Select -ExpandProperty HostName
     if ($Blocking) {
         Invoke-Command -computername $DC -ScriptBlock {repadmin /syncall /Aed}
     } else {
-        Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}
-        Start-Sleep 30
+        Invoke-Command -ComputerName $DC -ScriptBlock {repadmin /syncall}        
     }
+    Start-Sleep $SleepSeconds
 }
 
 function Sync-TervisADObjectToAllDomainControllers {
