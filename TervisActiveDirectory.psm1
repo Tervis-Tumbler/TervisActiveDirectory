@@ -870,3 +870,15 @@ function Get-ADUserOU {
     $ADUser = Get-ADUser $SAMAccountName
     ($Aduser.DistinguishedName -split "," | select -Skip 1 ) -join ","
 }
+
+function Move-UserToCiscoVPNCertificateADGroup {
+    param ($SamAccountName)
+    Remove-ADGroupMember -Identity CiscoVPN -Members $SamAccountName -Confirm:$false
+    Add-ADGroupMember -Identity CiscoVPN-Certificate -Members $SamAccountName
+}
+
+function Move-UserToCiscoVPNADGroup {
+    param ($SamAccountName)
+    Remove-ADGroupMember -Identity CiscoVPN-Certificate -Members $SamAccountName -Confirm:$false
+    Add-ADGroupMember -Identity CiscoVPN -Members $SamAccountName
+}
