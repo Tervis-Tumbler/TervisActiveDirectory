@@ -347,7 +347,7 @@ function Remove-TervisADUser {
         [Parameter(Mandatory)]$Identity,
         [Switch]$RemoveGroupos
     )
-    $ADUser = Get-ADUser $Identity -Properties DistinguishedName,ProtectedFromAccidentalDeletion
+    $ADUser = Get-TervisADUser $Identity -Properties DistinguishedName,ProtectedFromAccidentalDeletion
 
     Write-Verbose "Setting a 120 character strong password on the user account"
     $Password = New-RandomPassword
@@ -358,7 +358,7 @@ function Remove-TervisADUser {
     if ($ADUser.ProtectedFromAccidentalDeletion) {
         Set-ADObject -Identity $ADUser.DistinguishedName -ProtectedFromAccidentalDeletion $false
     }
-    If (Test-TervisUserHasOffice365Mailbox -Identity $Identity) {
+    If ($ADUser.O365Mailbox) {
         $OrganizationalUnit = Get-ADOrganizationalUnit -filter * | 
         where DistinguishedName -like "OU=Shared Mailbox,OU=Exchange,DC=*" | 
         select -ExpandProperty DistinguishedName
