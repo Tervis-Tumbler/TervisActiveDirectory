@@ -302,8 +302,7 @@ function Get-TervisADComputer {
         $Path,
         $Filter,
         $Properties
-    )
-    
+    )    
     $AdditionalNeededProperties = "lastLogonTimestamp"
     Get-ADComputer @PSBoundParameters | Add-ADComputerCustomProperties
 }
@@ -313,9 +312,11 @@ function Add-ADComputerCustomProperties {
         [Parameter(ValueFromPipeline)]$Input
     )
 
-    $Input | Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
-        [datetime]::FromFileTime($This.“lastLogonTimestamp”)
-    }
+    $Input | 
+    Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
+        [datetime]::FromFileTime($This.“lastLogonTimestamp”) 
+    } | 
+    Add-Member -MemberType AliasProperty -Name ComputerName -PassThru -Force -Value Name
 }
 
 #function Add-ADComputerCustomProperties {
