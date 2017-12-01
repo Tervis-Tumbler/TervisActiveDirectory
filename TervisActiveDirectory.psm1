@@ -883,3 +883,15 @@ function Move-UserToCiscoVPNADGroup {
     Remove-ADGroupMember -Identity CiscoVPN-Certificate -Members $SamAccountName -Confirm:$false
     Add-ADGroupMember -Identity CiscoVPN -Members $SamAccountName
 }
+
+function Invoke-GPUpdateForOU {
+    param(
+        [Parameter(Mandatory)]$SearchBase
+    )
+    get-adcomputer -SearchBase $SearchBase -Filter * |
+    ForEach-Object {
+        if (test-netconnection -computername $_.DNSHostNAme) {
+        invoke-gpupdate -computer $_.DNSHostNAme -asjob
+        }
+    }
+}
