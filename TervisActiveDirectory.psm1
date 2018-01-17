@@ -895,3 +895,21 @@ function Invoke-GPUpdateForOU {
         }
     }
 }
+
+function Remove-ADUserProxyAddress {
+    param (
+        [Parameter(Mandatory)]$Identity,
+        [Parameter(Mandatory)]$ProxyAddress
+    )
+    Get-ADUser -Identity $Identity -Properties ProxyAddresses | 
+    Set-ADUser -Remove @{proxyaddresses=$ProxyAddress}
+}
+
+function Add-ADUserProxyAddress {
+    param (
+        [Parameter(Mandatory)]$Identity,
+        [Parameter(Mandatory)]$ProxyAddress
+    )
+    Get-ADUser -Identity $Identity -Properties ProxyAddresses | 
+    Set-ADUser -Add @{proxyaddresses=$ProxyAddress}
+}
