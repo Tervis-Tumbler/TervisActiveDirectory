@@ -25,9 +25,7 @@ function Add-ADUserCustomProperties {
             [datetime]::FromFileTime($This."lastLogonTimestamp")
         } |
         Add-Member -MemberType ScriptProperty -Name O365Mailbox -PassThru -Force -Value {
-            $ConnectEXOPsessionFunction = Get-ChildItem -Path Function:\Connect-EXOPSSession
-            if ($ConnectEXOPsessionFunction) {
-                Connect-EXOPSSession
+            if (Connect-EXOPSSessionWithinExchangeOnlineShell) {
                 Get-Mailbox -Identity $This.UserPrincipalName
             } else {
                 Import-TervisOffice365ExchangePSSession
