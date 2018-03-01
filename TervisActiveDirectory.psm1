@@ -913,3 +913,11 @@ function Add-ADUserProxyAddress {
     Get-ADUser -Identity $Identity -Properties ProxyAddresses | 
     Set-ADUser -Add @{proxyaddresses=$ProxyAddress}
 }
+
+function Set-ADGroupManagedByAttribute{
+    param(
+        [parameter(Mandatory)]$ADGroup,
+        [parameter(Mandatory)]$GroupManager
+    )
+    Get-ADGroup $ADGroup | Set-ADGroup -ManagedBy $GroupManager
+}
