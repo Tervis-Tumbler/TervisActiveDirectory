@@ -25,8 +25,14 @@ function Add-ADUserCustomProperties {
             [datetime]::FromFileTime($This."lastLogonTimestamp")
         } |
         Add-Member -MemberType ScriptProperty -Name O365Mailbox -PassThru -Force -Value {
-            Import-TervisOffice365ExchangePSSession
-            Get-O365Mailbox -Identity $This.UserPrincipalName
+            $ConnectEXOPsessionFunction = Get-ChildItem -Path Function:\Connect-EXOPSSession
+            if ($ConnectEXOPsessionFunction) {
+                Connect-EXOPSSession
+                Get-Mailbox -Identity $This.UserPrincipalName
+            } else {
+                Import-TervisOffice365ExchangePSSession
+                Get-O365Mailbox -Identity $This.UserPrincipalName
+            }
         } |
         Add-Member -MemberType ScriptProperty -Name ExchangeMailbox -PassThru:$PassThru -Force -Value {
             Import-TervisExchangePSSession
@@ -912,4 +918,13 @@ function Add-ADUserProxyAddress {
     )
     Get-ADUser -Identity $Identity -Properties ProxyAddresses | 
     Set-ADUser -Add @{proxyaddresses=$ProxyAddress}
+}
+
+function Get-ADGroupEmailAddresses {
+    param (
+        $Identity
+    )
+    Get-ADGroupMember -Identity $Identity | 
+    Get-ADUser |
+    Select-Object -ExpandProperty UserPrincipalName
 }
