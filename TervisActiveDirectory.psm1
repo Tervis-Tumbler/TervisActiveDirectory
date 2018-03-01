@@ -32,6 +32,10 @@ function Add-ADUserCustomProperties {
                 Get-O365Mailbox -Identity $This.UserPrincipalName
             }
         } |
+        Add-Member -MemberType ScriptProperty -Name ExchangeRemoteMailbox -PassThru -Force -Value {
+            Import-TervisExchangePSSession
+            Get-ExchangeRemoteMailbox -Identity $This.UserPrincipalName
+        } |
         Add-Member -MemberType ScriptProperty -Name ExchangeMailbox -PassThru:$PassThru -Force -Value {
             Import-TervisExchangePSSession
             Get-ExchangeMailbox -Identity $This.UserPrincipalName
