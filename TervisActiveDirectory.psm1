@@ -25,8 +25,16 @@ function Add-ADUserCustomProperties {
             [datetime]::FromFileTime($This."lastLogonTimestamp")
         } |
         Add-Member -MemberType ScriptProperty -Name O365Mailbox -PassThru -Force -Value {
-            Import-TervisOffice365ExchangePSSession
-            Get-O365Mailbox -Identity $This.UserPrincipalName
+            if (Connect-EXOPSSessionWithinExchangeOnlineShell) {
+                Get-Mailbox -Identity $This.UserPrincipalName
+            } else {
+                Import-TervisOffice365ExchangePSSession
+                Get-O365Mailbox -Identity $This.UserPrincipalName
+            }
+        } |
+        Add-Member -MemberType ScriptProperty -Name ExchangeRemoteMailbox -PassThru -Force -Value {
+            Import-TervisExchangePSSession
+            Get-ExchangeRemoteMailbox -Identity $This.UserPrincipalName
         } |
         Add-Member -MemberType ScriptProperty -Name ExchangeMailbox -PassThru:$PassThru -Force -Value {
             Import-TervisExchangePSSession
