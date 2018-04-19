@@ -7,9 +7,14 @@ function Get-TervisADUser {
         $Filter,
         $Properties
     )
-    
-    $AdditionalNeededProperties = "msDS-UserPasswordExpiryTimeComputed,lastLogonTimestamp"
-    Get-ADUser @PSBoundParameters | Add-ADUserCustomProperties -PassThru
+    $Properties += "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp"
+
+    $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties
+    $ADUserParameters |
+    Add-Member -MemberType NoteProperty -Name Properties -Value $Properties
+
+    $ADUserParametersHashTable = $ADUserParameters | ConvertTo-HashTable
+    Get-ADUser @ADUserParametersHashTable | Add-ADUserCustomProperties -PassThru
 }
 
 function Add-ADUserCustomProperties {
@@ -19,7 +24,7 @@ function Add-ADUserCustomProperties {
     )
     process {
         $ADUser | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
-            [datetime]::FromFileTime($This.“msDS-UserPasswordExpiryTimeComputed”)
+            [datetime]::FromFileTime($This."msDS-UserPasswordExpiryTimeComputed")
         } |
         Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
             [datetime]::FromFileTime($This."lastLogonTimestamp")
