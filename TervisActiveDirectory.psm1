@@ -9,7 +9,7 @@ function Get-TervisADUser {
         [Switch]$IncludeMailboxProperties,
         [Switch]$IncludePaylocityEmployee
     )
-    $PropertiesIncludingThoseUsedByCustomProperites = $Properties + "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp","EmployeeID"
+    $PropertiesIncludingThoseUsedByCustomProperites = $Properties + "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp","EmployeeID","Title"
 
     $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties,IncludeMailboxProperties,IncludePaylocityEmployee
     $ADUserParameters |
@@ -59,7 +59,7 @@ function Add-ADUserCustomProperties {
         $ADUser |
         Where-Object { $IncludePaylocityEmployee } |
         Add-Member -MemberType ScriptProperty -Name PaylocityEmployee -Force -Value {
-            Get-PaylocityEmployees | Where-Object EmployeeID -EQ $This.EmployeeID
+            Get-PaylocityEmployee -EmployeeID $This.EmployeeID
         }
 
         if ($PassThru) { $ADUser }
