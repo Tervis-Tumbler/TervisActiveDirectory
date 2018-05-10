@@ -5,30 +5,40 @@ function Get-TervisADUser {
         $Identity,
         $Path,
         $Filter,
-        $Properties
+        $Properties,
+        [Switch]$IncludeMailboxProperties,
+        [Switch]$IncludePaylocityEmployee
     )
-    $Properties += "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp"
+    $PropertiesIncludingThoseUsedByCustomProperites += "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp","EmployeeID"
 
-    $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties
+    $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties,IncludeMailboxProperties,IncludePaylocityEmployee
     $ADUserParameters |
-    Add-Member -MemberType NoteProperty -Name Properties -Value $Properties
-
+    Add-Member -MemberType NoteProperty -Name Properties -Value $PropertiesIncludingThoseUsedByCustomProperites
     $ADUserParametersHashTable = $ADUserParameters | ConvertTo-HashTable
-    Get-ADUser @ADUserParametersHashTable | Add-ADUserCustomProperties -PassThru
+
+    $AddADUserCustomPropertiesParameters = $PSBoundParameters | 
+    ConvertFrom-PSBoundParameters -Property IncludeMailboxProperties, IncludePaylocityEmployee -AsHashTable
+    
+    Get-ADUser @ADUserParametersHashTable | Add-ADUserCustomProperties -PassThru @AddADUserCustomPropertiesParameters
 }
 
 function Add-ADUserCustomProperties {
     param (
         [Parameter(ValueFromPipeline)]$ADUser,
-        [Switch]$PassThru
+        [Switch]$PassThru,
+        [Switch]$IncludeMailboxProperties,
+        [Switch]$IncludePaylocityEmployee
     )
     process {
         $ADUser | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
             [datetime]::FromFileTime($This."msDS-UserPasswordExpiryTimeComputed")
         } |
-        Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
+        Add-Member -MemberType ScriptProperty -Name TervisLastLogon -Force -Value {
             [datetime]::FromFileTime($This."lastLogonTimestamp")
-        } |
+        }
+        
+        $ADUser |
+        Where-Object { $IncludeMailboxProperties } |
         Add-Member -MemberType ScriptProperty -Name O365Mailbox -PassThru -Force -Value {
             if (Connect-EXOPSSessionWithinExchangeOnlineShell) {
                 Get-Mailbox -Identity $This.UserPrincipalName
@@ -41,10 +51,18 @@ function Add-ADUserCustomProperties {
             Import-TervisExchangePSSession
             Get-ExchangeRemoteMailbox -Identity $This.UserPrincipalName
         } |
-        Add-Member -MemberType ScriptProperty -Name ExchangeMailbox -PassThru:$PassThru -Force -Value {
+        Add-Member -MemberType ScriptProperty -Name ExchangeMailbox -Force -Value {
             Import-TervisExchangePSSession
             Get-ExchangeMailbox -Identity $This.UserPrincipalName
+        } 
+        
+        $ADUser |
+        Where-Object { $IncludePaylocityEmployee } |
+        Add-Member -MemberType ScriptProperty -Name PaylocityEmployee -Force -Value {
+            Get-PaylocityEmployees | Where-Object EmployeeID -EQ $This.EmployeeID
         }
+
+        if ($PassThru) { $ADUser }
     }
 }
 
@@ -361,7 +379,7 @@ function Remove-TervisADUser {
         [Parameter(Mandatory)]$Identity,
         [Switch]$RemoveGroupos
     )
-    $ADUser = Get-TervisADUser $Identity -Properties DistinguishedName,ProtectedFromAccidentalDeletion
+    $ADUser = Get-TervisADUser $Identity -Properties DistinguishedName,ProtectedFromAccidentalDeletion -IncludeMailboxProperties
 
     Write-Verbose "Setting a 120 character strong password on the user account"
     $Password = New-RandomPassword
@@ -815,7 +833,7 @@ function Move-MESUsersToCorrectOU {
         Select -ExpandProperty DistinguishedName
     foreach ($MESUser in $MESUserNames) {
         $ErrorActionPreference = "SilentlyContinue"
-        $ADUser = Get-TervisADUser $MESUser -Properties LastLogonTimestamp,enabled,ProtectedFromAccidentalDeletion
+        $ADUser = Get-TervisADUser $MESUser -Properties LastLogonTimestamp,enabled,ProtectedFromAccidentalDeletion -IncludeMailboxProperties
         $ErrorActionPreference = "Continue"
         if ($ADUser -and (-NOT ($ADUser.DistinguishedName -Match "OU=Users,OU=Production Floor,OU=Operations,"))) {
             if (-NOT(($ADUser).TervisLastLogon -gt (Get-Date).AddDays(-30))) {
