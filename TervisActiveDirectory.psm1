@@ -5,11 +5,11 @@ function Get-TervisADUser {
         $Identity,
         $Path,
         $Filter,
-        $Properties,
+        [String[]]$Properties,
         [Switch]$IncludeMailboxProperties,
         [Switch]$IncludePaylocityEmployee
     )
-    $PropertiesIncludingThoseUsedByCustomProperites += "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp","EmployeeID"
+    $PropertiesIncludingThoseUsedByCustomProperites = $Properties + "msDS-UserPasswordExpiryTimeComputed","lastLogonTimestamp","EmployeeID"
 
     $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties,IncludeMailboxProperties,IncludePaylocityEmployee
     $ADUserParameters |
