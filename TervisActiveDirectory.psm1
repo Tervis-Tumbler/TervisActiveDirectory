@@ -1,6 +1,4 @@
-﻿#Requires -Modules TervisDNS, ActiveDirectory, TervisMailMessage
-
-function Get-TervisADUser {
+﻿function Get-TervisADUser {
     param (
         $Identity,
         $Path,
