@@ -58,9 +58,18 @@ function Add-ADUserCustomProperties {
         
         $ADUser |
         Where-Object { $IncludePaylocityEmployee } |
-        Add-Member -MemberType ScriptProperty -Name PaylocityEmployee -Force -Value {
+        Add-Member -MemberType ScriptProperty -Name PaylocityEmployee -PassThru -Force -Value {
             Get-PaylocityEmployee -EmployeeID $This.EmployeeID
-        }
+        } |
+        Add-Member -Name PaylocityDepartmentCode -MemberType ScriptProperty -PassThru -Force -Value {
+            $This.PaylocityEmployee.DepartmentCode
+        } |
+        Add-Member -Name PaylocityDepartmentName -MemberType ScriptProperty -PassThru -Force -Value {
+            $This.PaylocityEmployee.DepartmentName
+        } |
+        Add-Member -Name PaylocityDepartmentNiceName -MemberType ScriptProperty -Force -Value {
+            Get-DepartmentNiceName -PaylocityDepartmentName $this.PaylocityDepartmentName 
+        } 
 
         if ($PassThru) { $ADUser }
     }
