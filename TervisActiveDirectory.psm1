@@ -31,7 +31,7 @@ function Add-ADUserCustomProperties {
         $ADUser | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
             [datetime]::FromFileTime($This."msDS-UserPasswordExpiryTimeComputed")
         } |
-        Add-Member -MemberType ScriptProperty -Name TervisLastLogon -Force -Value {
+        Add-Member -MemberType ScriptProperty -Name LastLogon -Force -Value {
             [datetime]::FromFileTime($This."lastLogonTimestamp")
         }
         
@@ -351,7 +351,7 @@ function Add-ADComputerCustomProperties {
     )
 
     $Input | 
-    Add-Member -MemberType ScriptProperty -Name TervisLastLogon -PassThru -Force -Value {
+    Add-Member -MemberType ScriptProperty -Name LastLogon -PassThru -Force -Value {
         [datetime]::FromFileTime($This.“lastLogonTimestamp”) 
     } | 
     Add-Member -MemberType AliasProperty -Name ComputerName -PassThru -Force -Value Name
@@ -443,7 +443,7 @@ function Remove-TervisADComputerObject {
 
 function Disable-InactiveADComputers {
     $AdComputersToDisable = Get-TervisADComputer -Filter 'enabled -eq $true' -Properties LastLogonTimestamp,created,enabled,operatingsystem,PasswordLastSet | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-60) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-60) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-60) -and 
             $_.Enabled -eq $true -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
@@ -458,7 +458,7 @@ function Disable-InactiveADComputers {
         $Body = "The following $AdComputersToDisableCount computers are being disabled. `n" 
         $Body += "Computer Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADComputer in $AdComputersToDisable) {
-            $Body += ($ADComputer).name + "`t" + ($ADComputer).TervisLastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
+            $Body += ($ADComputer).name + "`t" + ($ADComputer).LastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
         }
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
@@ -471,7 +471,7 @@ function Disable-InactiveADComputers {
 function Remove-InactiveADComputers {
     $AdComputersToDelete = @()
     $AdComputersToDelete = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem,ProtectedFromAccidentalDeletion,PasswordLastSet | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-60) -and 
             $_.Name -notlike "TP9*" -and 
@@ -485,7 +485,7 @@ function Remove-InactiveADComputers {
         $Body = "The following $AdComputersToDeleteCount computers are being deleted. `n" 
         $Body += "Computer Name `t Tervis Last Logon `t Date Created `t Operating System `n"
         foreach ($ADComputer in $AdComputersToDelete) {
-            $Body += ($ADComputer).name + "`t" + ($ADComputer).TervisLastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
+            $Body += ($ADComputer).name + "`t" + ($ADComputer).LastLogon + "`t" + ($ADComputer).created + "`t" + ($ADComputer).operatingsystem + "`n"
         }
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
@@ -537,7 +537,7 @@ function Disable-InactiveADUsers {
         $Body = "The following $AdUsersToDisableCount users are being disabled. `n" 
         $Body += "User Name `t Tervis Last Logon `t Date Created `n"
         foreach ($ADUser in $AdUsersToDisable) {
-            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
+            $Body += ($ADUser).name + "`t" + ($ADUser).LastLogon + "`t" + ($ADUser).created + "`n"
         }
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
@@ -551,7 +551,7 @@ function Remove-InactiveADUsers {
     $MESUsers = Get-MESOnlyUsers
     $AdUsersToDelete = @()
     $AdUsersToDelete = Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf,PasswordLastSet | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-190) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-190) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-90) -and
             $_.DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," -and 
@@ -562,18 +562,18 @@ function Remove-InactiveADUsers {
             $_.Name -ne 'Guest' -and
             $_.Name -ne 'DefaultAccount'}
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,ProtectedFromAccidentalDeletion,MemberOf,PasswordLastSet | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-365) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-365) -and 
             $_.Created -lt (Get-Date).AddDays(-90) -and 
             $_.DistinguishedName -match "OU=Accounts - Service,DC=" -and
             $_.DistinguishedName -notmatch "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
     <#
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-425) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
             #>
     $AdUsersToDelete += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,Created,Enabled,PasswordLastSet,ProtectedFromAccidentalDeletion,MemberOf,Manager | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-425) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-425) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-425) -and
             $_.Enabled -eq $false -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC="}
@@ -585,7 +585,7 @@ function Remove-InactiveADUsers {
         $Body = "The following $AdUsersToDeleteCount users are being deleted. `n" 
         $Body += "User Name `t Tervis Last Logon `t Date Created `n"
         foreach ($ADUser in $AdUsersToDelete) {
-            $Body += ($ADUser).name + "`t" + ($ADUser).TervisLastLogon + "`t" + ($ADUser).created + "`n"
+            $Body += ($ADUser).name + "`t" + ($ADUser).LastLogon + "`t" + ($ADUser).created + "`n"
         }
         $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         $From = Get-ADUser -Filter {name -like "*daemon"} -Properties mail | select -ExpandProperty mail
@@ -616,7 +616,7 @@ function Remove-InactiveADUsers {
 function Send-TervisInactivityNotification {
     $AdUsersForNotification = @()
     $AdUsersForNotification += Get-TervisADUser -Filter * -Properties LastLogonTimestamp,created,enabled,PasswordLastSet,Manager | 
-        where {$_.TervisLastLogon -lt (Get-Date).AddDays(-351) -and 
+        where {$_.LastLogon -lt (Get-Date).AddDays(-351) -and 
             $_.PasswordLastSet -lt (Get-Date).AddDays(-351) -and
             $_.DistinguishedName -match "OU=Inactivity Exceptions,OU=Accounts - Service,DC=" -and
             $_.Enabled -eq $true}
@@ -631,14 +631,14 @@ function Send-TervisInactivityNotification {
         } else {
             $To = Get-ADGroup -Filter {name -like "it tech*"} -Properties mail | select -ExpandProperty mail
         }
-        if (($AdUserForNotification).PasswordLastSet -gt ($AdUserForNotification).TervisLastLogon) {
+        if (($AdUserForNotification).PasswordLastSet -gt ($AdUserForNotification).LastLogon) {
             $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).PasswordLastSet
         } else {
-            $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).TervisLastLogon | Select -ExpandProperty Days
+            $DaysUntilDisabled = (Get-Date).AddDays(-365) - ($AdUserForNotification).LastLogon | Select -ExpandProperty Days
         }
         $Body = "The following user in the Inactive Exceptions OU will be disabled in $DaysUntilDisabled days if the password is not reset. `n" 
         $Body += "User Name `t Tervis Last Logon `t Date Created 't Password Last Set `n"
-        $Body += ($AdUserForNotification).name + "`t" + ($AdUserForNotification).TervisLastLogon + "`t" + ($AdUserForNotification).created + "`t" +  ($AdUserForNotification).PasswordLastSet + "`n"
+        $Body += ($AdUserForNotification).name + "`t" + ($AdUserForNotification).LastLogon + "`t" + ($AdUserForNotification).created + "`t" +  ($AdUserForNotification).PasswordLastSet + "`n"
         Send-MailMessage -To $To -From $From -Subject 'Service Account with Expection to be Disabled' -Body $Body -SmtpServer $SMTPServer
     }
 }
@@ -843,7 +843,7 @@ function Move-MESUsersToCorrectOU {
         $ADUser = Get-TervisADUser $MESUser -Properties LastLogonTimestamp,enabled,ProtectedFromAccidentalDeletion -IncludeMailboxProperties
         $ErrorActionPreference = "Continue"
         if ($ADUser -and (-NOT ($ADUser.DistinguishedName -Match "OU=Users,OU=Production Floor,OU=Operations,"))) {
-            if (-NOT(($ADUser).TervisLastLogon -gt (Get-Date).AddDays(-30))) {
+            if (-NOT(($ADUser).LastLogon -gt (Get-Date).AddDays(-30))) {
                 if (-NOT (Test-TervisUserHasOffice365SharedMailbox -Identity ($ADUser).SamAccountName)) {
                     if ($ADUser.ProtectedFromAccidentalDeletion) {
                         Set-ADObject -Identity $ADUser.DistinguishedName -ProtectedFromAccidentalDeletion $false
