@@ -1,4 +1,4 @@
-﻿$ADUsers = Get-ADUser -Filter * -SearchBase "OU=Departments,DC=tervis,DC=prv" -Properties HomeDirectory, Manager, EmployeeID, MemberOf, PasswordNeverExpires, Department, TelephoneNumber
+﻿$ADUsers = Get-ADUser -Filter * -SearchBase "OU=Departments,DC=tervis,DC=prv" -Properties Manager, EmployeeID, MemberOf, PasswordNeverExpires, Department, TelephoneNumber
 
 foreach ($ADUser in $ADUsers) {
     Describe "Active Directory User" {
@@ -24,12 +24,6 @@ foreach ($ADUser in $ADUsers) {
             
             if ($ADUserThatShouldHaveManager) {
                 $ADUserThatShouldHaveManager.Manager | Should Not BeNullOrEmpty
-            }
-        }
- 
-        It "If $($ADUser.Name) ($($ADUser.samaccountname)) has a home directory, it should exist" {
-            if ($ADUSer.HomeDirectory) {
-                $ADUSer.HomeDirectory | should exist
             }
         }
 
