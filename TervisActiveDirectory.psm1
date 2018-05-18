@@ -244,15 +244,14 @@ function Remove-TervisADUser {
     )
     $ADUser = Get-TervisADUser $Identity -Properties DistinguishedName,ProtectedFromAccidentalDeletion -IncludeMailboxProperties
 
-    Write-Verbose "Setting a 120 character strong password on the user account"
     $Password = New-RandomPassword
     $SecurePassword = ConvertTo-SecureString $Password -asplaintext -force
     Set-ADAccountPassword -Identity $identity -NewPassword $SecurePassword
 
-    Write-Verbose "Moving user account to the appropriate OU"
     if ($ADUser.ProtectedFromAccidentalDeletion) {
         Set-ADObject -Identity $ADUser.DistinguishedName -ProtectedFromAccidentalDeletion $false
     }
+
     If ($ADUser.O365Mailbox) {
         $OrganizationalUnit = Get-ADOrganizationalUnit -filter * | 
         where DistinguishedName -like "OU=Shared Mailbox,OU=Exchange,DC=*" | 
@@ -267,17 +266,13 @@ function Remove-TervisADUser {
     $NewDistinguishedName = (Get-ADUser -Identity $Identity).DistinguishedName
 
     if ($RemoveGroups) {
-        Write-Verbose "Removing all AD group memberships"
         $Groups = Get-ADUser $Identity -Properties MemberOf | select -ExpandProperty MemberOf
         foreach ($Group in $Groups) {
             Remove-ADGroupMember -Identity $Group -Members $Identity -Confirm:$false
         }
     }
 
-    Write-Verbose "Disabling AD account"
     Disable-ADAccount $Identity
-
-    Write-Verbose "Setting AD account expiration"
     Set-ADAccountExpiration $Identity -DateTime (get-date)
 }
 
@@ -297,7 +292,7 @@ function Remove-TervisADComputerObject {
     }
 }
 
-function Disable-InactiveADComputers {
+function Disable-TervisADComputerInactive {
     $AdComputers = Get-TervisADComputerInactive -ThresholdType Disable
     if ($AdComputers) {
         Send-TervisADObjectActionEmail -ADObjects $AdComputers -Action disable -Property Name,LastLogon,Created,Operatingsystem
@@ -326,7 +321,7 @@ function Get-TervisADComputerInactive {
     Where-Object OperatingSystem -NotIn ("RHEL","Mac OS X",$null)
 }
 
-function Remove-InactiveADComputers {
+function Remove-TervisADComputerInactive {
     $ADComputers = Get-TervisADComputerInactive -ThresholdType Remove    
     Send-TervisADObjectActionEmail -ADObjects $ADComputers -Action remove -Property Name,LastLogon,Created,Operatingsystem
     $ADComputers | Remove-TervisADObject
@@ -464,20 +459,13 @@ $(
     Remove-Item -Path $MailAttachment -Force -Confirm:$false
 }
 
-function Disable-InactiveADObject {
-    param (
-        [Parameter(Mandatory)]$ADObjects
-    )
+function Disable-TervisADUserInactive {
+    $ADObjects = Get-TervisADUserInactive -ThresholdType Disable
     Send-TervisADObjectActionEmail -ADObjects $ADObjects -Action disable -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
     $ADObjects | Disable-ADAccount -Confirm:$false
 }
 
-function Invoke-DisableADObjectProcess {
-    $TervisADUserInactive = Get-TervisADUserInactive -ThresholdType Disable
-    Disable-InactiveADObject -ADObjects $TervisADUserInactive
-}
-
-function Remove-ADUserInactive {
+function Remove-TervisADUserInactive {
     $AdUsersToDelete = Get-TervisADUserInactive -ThresholdType Remove
     Send-TervisADObjectActionEmail -ADObjects $AdUsersToDelete -Action remove -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
     
@@ -686,6 +674,29 @@ function Install-SendTervisInactivityNotification {
             Install-TervisScheduledTask -Credential $ScheduledTaskCredential -TaskName Send-TervisInactivityNotification -Execute $Execute -Argument $Argument -RepetitionIntervalName EveryDayAt3am -ComputerName $ComputerName
         }
     }
+}
+
+functin Invoke-TervisActiveDirectoryCleanup {    
+    Remove-ADUserInactive
+    Remove-InactiveADUsers
+    Send-TervisInactivityNotification
+}
+
+function Install-TervisActiveDirectoryCleanup {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    
+    $InstallPowerShellApplicationParameters = @{
+        ModuleName = "TervisSOAMonitoringApplication"
+        DependentTervisModuleNames = "TervisMailMessage","TervisOracleSOASuite"
+        ScheduledScriptCommandsString = "Invoke-TervisActiveDirectoryCleanup"
+        ScheduledTasksCredential = (Get-PasswordstatePassword -ID 259 -AsCredential)
+        ScheduledTaskName = "Invoke-TervisOracleSOAJobMonitoring"
+        RepetitionIntervalName = "EveryDayEvery15Minutes"
+    }
+
+    Install-PowerShellApplication -ComputerName $ComputerName @InstallPowerShellApplicationParameters
 }
 
 function Get-ADObjectParentContainer {
