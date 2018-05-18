@@ -676,7 +676,7 @@ function Install-SendTervisInactivityNotification {
     }
 }
 
-functin Invoke-TervisActiveDirectoryCleanup {    
+function Invoke-TervisActiveDirectoryCleanup {    
     Disable-TervisADUserInactive
     Disable-TervisADComputerInactive
     Remove-TervisADUserInactive
