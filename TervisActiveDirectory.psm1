@@ -461,21 +461,23 @@ $(
 
 function Disable-TervisADUserInactive {
     $ADObjects = Get-TervisADUserInactive -ThresholdType Disable
-    Send-TervisADObjectActionEmail -ADObjects $ADObjects -Action disable -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
-    $ADObjects | Disable-ADAccount -Confirm:$false
+    if ($ADObjects) {
+        Send-TervisADObjectActionEmail -ADObjects $ADObjects -Action disable -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
+        $ADObjects | Disable-ADAccount -Confirm:$false
+    }
 }
 
 function Remove-TervisADUserInactive {
     $AdUsersToDelete = Get-TervisADUserInactive -ThresholdType Remove
-    Send-TervisADObjectActionEmail -ADObjects $AdUsersToDelete -Action remove -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
-    
-    foreach ($AdUserToDelete in $AdUsersToDelete) {
-        Remove-TervisADObject -ADObject $AdUserToDelete
-
-        if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
-            Remove-TervisPerson -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
-        } else {
-            Remove-ADObject ($AdUserToDelete).DistinguishedName -Confirm:$false -Recursive
+    if ($AdUsersToDelete) {
+        Send-TervisADObjectActionEmail -ADObjects $AdUsersToDelete -Action remove -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
+        
+        foreach ($AdUserToDelete in $AdUsersToDelete) {
+            if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
+                Remove-TervisPerson -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
+            }
+            
+            Remove-TervisADObject -ADObject $AdUserToDelete
         }
     }
 }
