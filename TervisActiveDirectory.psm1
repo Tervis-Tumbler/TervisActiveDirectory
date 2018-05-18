@@ -322,16 +322,18 @@ function Get-TervisADComputerInactive {
 }
 
 function Remove-TervisADComputerInactive {
-    $ADComputers = Get-TervisADComputerInactive -ThresholdType Remove    
-    Send-TervisADObjectActionEmail -ADObjects $ADComputers -Action remove -Property Name,LastLogon,Created,Operatingsystem
-    $ADComputers | Remove-TervisADObject
-    $ADComputers | Remove-ADObject -Confirm:$false -Recursive
-    $ADComputers | Remove-TervisDNSRecord    
+    $ADComputers = Get-TervisADComputerInactive -ThresholdType Remove
+    if ($ADComputers) {
+        Send-TervisADObjectActionEmail -ADObjects $ADComputers -Action remove -Property Name,LastLogon,Created,Operatingsystem
+        $ADComputers | Remove-TervisADObject
+        $ADComputers | Remove-ADObject -Confirm:$false -Recursive
+        $ADComputers | Remove-TervisDNSRecord
+    }
 }
 
 function Remove-TervisADObject {
     param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ADObject
+        [Parameter(Mandatory,ValueFromPipeline)]$ADObject
     )
     process {
         Push-Location AD:
@@ -476,9 +478,8 @@ function Remove-TervisADUserInactive {
             if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
                 Remove-TervisPerson -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
             }
-            
-            Remove-TervisADObject -ADObject $AdUserToDelete
         }
+        $AdUserToDelete | Remove-TervisADObject
     }
 }
 
