@@ -298,10 +298,10 @@ function Remove-TervisADComputerObject {
 }
 
 function Disable-InactiveADComputers {
-    $AdComputersToDisable = Get-TervisADComputerInactive -ThresholdType Disable
-    if ($AdComputersToDisable) {
-        Send-TervisADObjectActionEmail -ADObjects $AdComputersToDelete -Action disable -Property Name,LastLogon,Created,Operatingsystem
-        $AdComputersToDisable | Disable-ADAccount -Confirm:$false
+    $AdComputers = Get-TervisADComputerInactive -ThresholdType Disable
+    if ($AdComputers) {
+        Send-TervisADObjectActionEmail -ADObjects $AdComputers -Action disable -Property Name,LastLogon,Created,Operatingsystem
+        $AdComputers | Disable-ADAccount -Confirm:$false
     }
 }
 
@@ -327,25 +327,32 @@ function Get-TervisADComputerInactive {
 }
 
 function Remove-InactiveADComputers {
-    $AdComputersToDelete = Get-TervisADComputerInactive -ThresholdType Remove
-    
-    Send-TervisADObjectActionEmail -ADObjects $AdComputersToDelete -Action remove -Property Name,LastLogon,Created,Operatingsystem
+    $ADComputers = Get-TervisADComputerInactive -ThresholdType Remove    
+    Send-TervisADObjectActionEmail -ADObjects $ADComputers -Action remove -Property Name,LastLogon,Created,Operatingsystem
+    $ADComputers | Remove-TervisADObject
+    $ADComputers | Remove-ADObject -Confirm:$false -Recursive
+    $ADComputers | Remove-TervisDNSRecord    
+}
 
-    foreach ($AdComputerToDelete in $AdComputersToDelete) {
-        Set-Location AD:
-        $AdObjectACL = Get-Acl ($AdComputerToDelete).DistinguishedName
+function Remove-TervisADObject {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ADObject
+    )
+    process {
+        Push-Location AD:
+        $AdObjectACL = Get-Acl ($ADObject).DistinguishedName
         foreach ($AccessRule in $AdObjectACL.Access) {
             if ($AccessRule.IdentityReference.Value -eq 'Everyone' -and $AccessRule.AccessControlType -eq 'Deny' -and $AccessRule.ActiveDirectoryRights -match 'Delete') {
                 $AdObjectACL.RemoveAccessRule($AccessRule) | Out-Null
             }
         }
-        Set-Location ($ENV:SystemRoot + '\System32')
-        if ($AdComputerToDelete.ProtectedFromAccidentalDeletion) {
-            Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
+        Pop-Location
+        if ($ADObject.ProtectedFromAccidentalDeletion) {
+            Set-ADObject -Identity ($ADObject).DistinguishedName -ProtectedFromAccidentalDeletion $false
         }
+        
+        $ADObject | Remove-ADObject -Confirm:$false -Recursive
     }
-    $AdComputersToDelete | Remove-ADObject -Confirm:$false -Recursive
-    $AdComputersToDelete | Remove-TervisDNSRecord    
 }
 
 function Invoke-FilterADObject {
@@ -475,17 +482,8 @@ function Remove-ADUserInactive {
     Send-TervisADObjectActionEmail -ADObjects $AdUsersToDelete -Action remove -Property Name, SAMAccountName, Enabled, LastLogon, Created, PasswordLastSet
     
     foreach ($AdUserToDelete in $AdUsersToDelete) {
-        Set-Location AD:
-        $AdObjectACL = Get-Acl ($AdUserToDelete).DistinguishedName
-        foreach ($AccessRule in $AdObjectACL.Access) {
-            if ($AccessRule.IdentityReference.Value -eq 'Everyone' -and $AccessRule.AccessControlType -eq 'Deny' -and $AccessRule.ActiveDirectoryRights -match 'Delete') {
-                $AdObjectACL.RemoveAccessRule($AccessRule) | Out-Null
-            }
-        }
-        Set-Location ($ENV:SystemRoot + '\System32')
-        if ($AdUserToDelete.ProtectedFromAccidentalDeletion) {
-            Set-ADObject -Identity ($AdUserToDelete).DistinguishedName -ProtectedFromAccidentalDeletion $false
-        }
+        Remove-TervisADObject -ADObject $AdUserToDelete
+
         if (($AdUserToDelete).DistinguishedName -match "OU=Departments,DC=") {
             Remove-TervisPerson -Identity ($AdUserToDelete).SamAccountName -NoUserReceivesData
         } else {
