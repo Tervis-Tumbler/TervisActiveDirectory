@@ -326,7 +326,6 @@ function Remove-TervisADComputerInactive {
     if ($ADComputers) {
         Send-TervisADObjectActionEmail -ADObjects $ADComputers -Action remove -Property Name,LastLogon,Created,Operatingsystem
         $ADComputers | Remove-TervisADObject
-        $ADComputers | Remove-ADObject -Confirm:$false -Recursive
         $ADComputers | Remove-TervisDNSRecord
     }
 }
