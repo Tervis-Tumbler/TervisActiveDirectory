@@ -393,7 +393,7 @@ function Get-TervisADUserInactive {
     $ADUsersInactive = @()
 
     if ($ThresholdType -eq "Disable") {
-        $ADUsersInactive = $ADUsersToEvaluate |
+        $ADUsersInactive += $ADUsersToEvaluate |
         Where-Object Enabled -eq $true |
         Invoke-FilterADObject -LastLogonOlderThanDays 30 -CreatedOlderThanDays 60 -PasswordLastSetOlderThanDays 90 |
         Where-Object DistinguishedName -notmatch "CN=Microsoft Exchange System Objects,DC=" |
@@ -411,7 +411,7 @@ function Get-TervisADUserInactive {
         Invoke-FilterADObject -LastLogonOlderThanDays 365 -PasswordLastSetOlderThanDays 365
 
     } elseif ($ThresholdType -eq "Remove") {        
-        $ADUsersInactive = $ADUsersToEvaluate |
+        $ADUsersInactive += $ADUsersToEvaluate |
         Invoke-FilterADObject -LastLogonOlderThanDays 190 -CreatedOlderThanDays 90 -PasswordLastSetOlderThanDays 90 |
         Where-Object DistinguishedName -notmatch "CN=Microsoft Exchange System Objects," |
         Where-Object DistinguishedName -notmatch "OU=Exchange,DC=" |
@@ -677,9 +677,11 @@ function Install-SendTervisInactivityNotification {
 }
 
 functin Invoke-TervisActiveDirectoryCleanup {    
-    Remove-ADUserInactive
-    Remove-InactiveADUsers
-    Send-TervisInactivityNotification
+    Disable-TervisADUserInactive
+    Disable-TervisADComputerInactive
+    Remove-TervisADUserInactive
+    Remove-TervisADComputerInactive
+    #Send-TervisInactivityNotification
 }
 
 function Install-TervisActiveDirectoryCleanup {
