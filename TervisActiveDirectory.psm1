@@ -681,8 +681,8 @@ function Install-SendTervisInactivityNotification {
 function Invoke-TervisActiveDirectoryCleanup {    
     Disable-TervisADUserInactive
     Disable-TervisADComputerInactive
-    Remove-TervisADUserInactive
     Remove-TervisADComputerInactive
+    #Remove-TervisADUserInactive
     #Send-TervisInactivityNotification
 }
 
@@ -692,12 +692,12 @@ function Install-TervisActiveDirectoryCleanup {
     )
     
     $InstallPowerShellApplicationParameters = @{
-        ModuleName = "TervisSOAMonitoringApplication"
-        DependentTervisModuleNames = "TervisMailMessage","TervisOracleSOASuite"
+        ModuleName = "TervisActiveDirectory"
+        DependentTervisModuleNames = "TervisMailMessage","TervisMicrosoft.PowerShell.Utility","WebServicesPowerShellProxyBuilder","TervisDNS"
         ScheduledScriptCommandsString = "Invoke-TervisActiveDirectoryCleanup"
         ScheduledTasksCredential = (Get-PasswordstatePassword -ID 259 -AsCredential)
-        ScheduledTaskName = "Invoke-TervisOracleSOAJobMonitoring"
-        RepetitionIntervalName = "EveryDayEvery15Minutes"
+        ScheduledTaskName = "Invoke-TervisActiveDirectoryCleanup"
+        RepetitionIntervalName = "OnceAWeekTuesdayMorning"
     }
 
     Install-PowerShellApplication -ComputerName $ComputerName @InstallPowerShellApplicationParameters
