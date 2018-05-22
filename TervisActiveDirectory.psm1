@@ -7,17 +7,18 @@
         [ValidateSet("Base", "OneLevel", "Subtree")]$SearchScope,
         [String[]]$Properties,
         [Switch]$IncludeMailboxProperties,
-        [Switch]$IncludePaylocityEmployee
+        [Switch]$IncludePaylocityEmployee,
+        [Switch]$IncludeMSOLUser
     )
     $PropertiesIncludingThoseUsedByCustomProperites = $Properties + "msDS-UserPasswordExpiryTimeComputed","LastLogonTimestamp","EmployeeID","Title","Manager","PasswordLastSet","Created","MemberOf","ProtectedFromAccidentalDeletion"
-
-    $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties,IncludeMailboxProperties,IncludePaylocityEmployee
+    
+    $ADUserParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties,IncludeMailboxProperties,IncludePaylocityEmployee,IncludeMSOLUser
     $ADUserParameters |
     Add-Member -MemberType NoteProperty -Name Properties -Value $PropertiesIncludingThoseUsedByCustomProperites
     $ADUserParametersHashTable = $ADUserParameters | ConvertTo-HashTable
 
     $AddADUserCustomPropertiesParameters = $PSBoundParameters | 
-    ConvertFrom-PSBoundParameters -Property IncludeMailboxProperties, IncludePaylocityEmployee -AsHashTable
+    ConvertFrom-PSBoundParameters -Property IncludeMailboxProperties, IncludePaylocityEmployee, IncludeMSOLUser -AsHashTable
     
     Get-ADUser @ADUserParametersHashTable | Add-ADUserCustomProperties -PassThru @AddADUserCustomPropertiesParameters
 }
@@ -27,7 +28,8 @@ function Add-ADUserCustomProperties {
         [Parameter(ValueFromPipeline)]$ADUser,
         [Switch]$PassThru,
         [Switch]$IncludeMailboxProperties,
-        [Switch]$IncludePaylocityEmployee
+        [Switch]$IncludePaylocityEmployee,
+        [Switch]$IncludeMSOLUser
     )
     process {
         $ADUser | Add-Member -MemberType ScriptProperty -Name PasswordExpirationDate -PassThru -Force -Value {
@@ -72,7 +74,14 @@ function Add-ADUserCustomProperties {
         } |
         Add-Member -Name PaylocityDepartmentNiceName -MemberType ScriptProperty -Force -Value {
             Get-DepartmentNiceName -PaylocityDepartmentName $this.PaylocityDepartmentName 
-        } 
+        }
+
+        $ADUser |
+        Where-Object { $IncludeMSOLUser } |
+        Add-Member -MemberType ScriptProperty -Name MSOLUser -Force -Value {
+            Connect-TervisMsolService
+            Get-MsolUser -UserPrincipalName $This.UserPrincipalName
+        }
 
         if ($PassThru) { $ADUser }
     }
