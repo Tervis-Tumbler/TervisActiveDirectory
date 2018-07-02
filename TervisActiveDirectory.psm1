@@ -229,20 +229,32 @@ function Get-TervisADComputer {
         $Filter,
         $Properties
     )    
-    $AdditionalNeededProperties = "lastLogonTimestamp"
-    Get-ADComputer @PSBoundParameters | Add-ADComputerCustomProperties
+    $PropertiesIncludingThoseUsedByCustomProperites = $Properties + "LastLogonTimeStamp","LastLogonDate","Lastlogon","created","enabled","operatingsystem","ProtectedFromAccidentalDeletion","PasswordLastSet"
+    
+    $ADComputerParameters = $PSBoundParameters | ConvertFrom-PSBoundParameters -ExcludeProperty Properties
+    $ADComputerParameters |
+    Add-Member -MemberType NoteProperty -Name Properties -Value $PropertiesIncludingThoseUsedByCustomProperites
+    $ADComputerParametersHashTable = $ADComputerParameters | ConvertTo-HashTable
+
+    $AddADComputerCustomPropertiesParameters = $PSBoundParameters | 
+    ConvertFrom-PSBoundParameters -Property LastLogonTimeStamp -AsHashTable 
+    
+    Get-ADComputer @ADComputerParametersHashTable | Add-ADComputerCustomProperties -Passthru @AddADComputerCustomPropertiesParameters
 }
 
 function Add-ADComputerCustomProperties {
     param (
-        [Parameter(ValueFromPipeline)]$Input
+        [Parameter(ValueFromPipeline)]$ADComputer,
+        [Switch]$Passthru
     )
-
-    $Input | 
-    Add-Member -MemberType ScriptProperty -Name LastLogon -PassThru -Force -Value {
-        [datetime]::FromFileTime($This.“lastLogonTimestamp”) 
-    } | 
-    Add-Member -MemberType AliasProperty -Name ComputerName -PassThru -Force -Value Name
+    process {
+        $ADComputer | 
+        Add-Member -MemberType ScriptProperty -Name LastLogonDateTime -PassThru -Force -Value {
+            [datetime]::FromFileTime($This.lastLogonTimestamp) 
+        } | 
+        Add-Member -MemberType AliasProperty -Name ComputerName -PassThru -Force -Value Name
+        if ($PassThru) { $ADComputer }
+    }
 }
 
 function Remove-TervisADUser {
@@ -313,7 +325,7 @@ function Get-TervisADComputerInactive {
     param (
         [Parameter(Mandatory)][ValidateSet("Disable","Remove")]$ThresholdType
     )
-    $ADcomputersToEvaluate = Get-TervisADComputer -Filter * -Properties LastLogonTimestamp,created,enabled,operatingsystem,ProtectedFromAccidentalDeletion,PasswordLastSet
+    $ADcomputersToEvaluate = Get-TervisADComputer -Filter *
 
     $ADComputers = if ($ThresholdType -eq "Disable") {
         $ADcomputersToEvaluate |
@@ -327,6 +339,7 @@ function Get-TervisADComputerInactive {
     $ADComputers |
     Where-Object Name -notlike "TP9*" |
     Where-Object OperatingSystem -notlike "Windows Server*" |
+#    Where-Object OperatingSystem -NotIn ("RHEL","redhat-linux-gnu","Mac OS X",$null)
     Where-Object OperatingSystem -NotIn ("RHEL","Mac OS X",$null)
 }
 
@@ -369,7 +382,7 @@ function Invoke-FilterADObject {
     )
     process {
         $ADObject |
-        Where-Object { -not $LastLogonOlderThanDays -or $_.LastLogon -lt (Get-Date).AddDays(-$LastLogonOlderThanDays) } |
+        Where-Object { -not $LastLogonOlderThanDays -or $_.LastLogonDateTime -lt (Get-Date).AddDays(-$LastLogonOlderThanDays) } |
         Where-Object { -not $CreatedOlderThanDays -or $_.Created -lt (Get-Date).AddDays(-$CreatedOlderThanDays) } |
         Where-Object { -not $PasswordLastSetOlderThanDays -or $_.PasswordLastSet -lt (Get-Date).AddDays(-$PasswordLastSetOlderThanDays) }
     }
