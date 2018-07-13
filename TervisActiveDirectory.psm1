@@ -574,7 +574,7 @@ function Install-InvokeSyncGravatarPhotosToADUsersInAD {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
     )
     begin {
-        $ScheduledTaskCredential = Get-PasswordstateCredential -PasswordID 259
+        $ScheduledTaskCredential = Get-PasswordstatePassword -AsCredential -ID 259
     }
     process {
         Install-PowerShellApplicationScheduledTask -PathToScriptForScheduledTask "C:\Scripts\" `
