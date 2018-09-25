@@ -1002,3 +1002,13 @@ function New-ADUserTypeObjects {
         }
     }
 }
+
+function Set-TervisADUserPrimaryGroupID {
+    $Results = Get-AdUser -filter * -Properties PrimaryGroupID | group PrimaryGroupID
+    $UsersWithNonDefaultGroup = $Results | Where-Object Name -ne 513 | Select-Object -ExpandProperty Group
+    $DomainUsers = get-adgroup "Domain Users" -properties @("primaryGroupToken")
+    $UsersWithNonDefaultGroup | % { Add-ADGroupMember -Identity $DomainUsers.SamAccountName -Members $_ }
+    $UsersWithNonDefaultGroup | Set-ADUser -replace @{
+        primaryGroupID = $DomainUsers.primaryGroupToken
+    }
+}
