@@ -1012,3 +1012,24 @@ function Set-TervisADUserPrimaryGroupID {
         primaryGroupID = $DomainUsers.primaryGroupToken
     }
 }
+
+function Install-HaveIBeenPWNEDCustomPasswordFilterOnDomainController{
+    param(
+        [parameter(mandatory)]$ComputerName,
+        [switch]$Restart
+    )
+    $PasswordFilterDLLName = "PwnedPasswordsDLL-API"
+    Copy-Item -Path "\\tervis\applications\Installers\HaveIBeenPWNED\PwnedPasswordsDLL-API.dll" -Destination "\\$ComputerName\c$\Windows\System32" -Force
+    $KeyPath = "HKLM:System\CurrentControlSet\Control\Lsa"
+    $KeyName = "Notification Packages"
+    $NotificationPackagesKey = Invoke-Command -ComputerName $ComputerName -ScriptBlock {Get-ItemPropertyValue -Path $using:KeyPath -Name $using:KeyName}
+    $NotificationPackagesKey.Split('',[System.StringSplitOptions]::RemoveEmptyEntries)
+    If($ExistingNotificationPackagesKey -notcontains $PasswordFilterDLLName){
+        $NotificationPackagesKey.Add($PasswordFilterDLLName)
+        Invoke-Command -ComputerName $ComputerName -ScriptBlock {New-ItemProperty -Path $using:KeyPath -Name $using:KeyName -Value $using:NotificationPackagesKey -PropertyType MultiString -Force}
+        if($Restart){
+            Restart-Computer -ComputerName $ComputerName -Force
+        }
+    }
+    Write-Error -Message "Key value already exists. Doing nothing"
+}
