@@ -631,8 +631,9 @@ function Install-TervisActiveDirectoryCleanup {
     
     $InstallPowerShellApplicationParameters = @{
         ModuleName = "TervisActiveDirectory"
-        DependentTervisModuleNames = "TervisMailMessage","TervisMicrosoft.PowerShell.Utility","WebServicesPowerShellProxyBuilder","TervisDNS"
-        ScheduledScriptCommandsString = "Invoke-TervisActiveDirectoryCleanup"
+        EnvironmentName = "Infrastructure"
+        TervisModuleDependencies = "TervisMailMessage","TervisMicrosoft.PowerShell.Utility","WebServicesPowerShellProxyBuilder","TervisDNS"
+        CommandString = "Invoke-TervisActiveDirectoryCleanup"
         ScheduledTasksCredential = (Get-PasswordstatePassword -ID 259 -AsCredential)
         ScheduledTaskName = "Invoke-TervisActiveDirectoryCleanup"
         RepetitionIntervalName = "OnceAWeekTuesdayMorning"
