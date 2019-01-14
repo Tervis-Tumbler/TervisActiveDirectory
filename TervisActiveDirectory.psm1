@@ -325,7 +325,7 @@ function Get-TervisADComputerInactive {
     param (
         [Parameter(Mandatory)][ValidateSet("Disable","Remove")]$ThresholdType
     )
-    $ADcomputersToEvaluate = Get-TervisADComputer -Filter *
+    $ADcomputersToEvaluate = Get-TervisADComputer -Filter * -Properties CanonicalName
 
     $ADComputers = if ($ThresholdType -eq "Disable") {
         $ADcomputersToEvaluate |
@@ -340,7 +340,8 @@ function Get-TervisADComputerInactive {
     Where-Object Name -notlike "TP9*" |
     Where-Object OperatingSystem -notlike "Windows Server*" |
 #    Where-Object OperatingSystem -NotIn ("RHEL","redhat-linux-gnu","Mac OS X",$null)
-    Where-Object OperatingSystem -NotIn ("RHEL","Mac OS X",$null)
+    Where-Object OperatingSystem -NotIn ("RHEL","Mac OS X",$null) | 
+    Where-Object CanonicalName -NotLike "$((Get-ADDomain).DNSRoot)/IndustryPCs/SurfaceMES/*"
 }
 
 function Remove-TervisADComputerInactive {
